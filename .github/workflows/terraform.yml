@@ -21,3 +21,29 @@ jobs:
           aws-region: ap-northeast-1
       - run: aws iam list-users
       - run: aws iam create-user --user-name invalid || true
+
+      # ファイルをチェックアウト
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # https://github.com/hashicorp/setup-terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+        continue-on-error: true
