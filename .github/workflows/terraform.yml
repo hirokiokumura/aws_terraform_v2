@@ -23,8 +23,9 @@ jobs:
       - run: aws iam create-user --user-name invalid || true
 
       # ファイルをチェックアウト
+      # https://github.com/actions/checkout
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # https://github.com/hashicorp/setup-terraform
       - name: Setup Terraform
