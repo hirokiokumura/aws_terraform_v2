@@ -26,6 +26,8 @@ jobs:
       # https://github.com/actions/checkout
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # https://github.com/hashicorp/setup-terraform
       - name: Setup Terraform
