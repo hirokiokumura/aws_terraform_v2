@@ -31,11 +31,31 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform fmt
-        id: fmt
+      # - name: Terraform fmt
+      #   id: fmt
+      #   run: terraform fmt -check
+      #   continue-on-error: true
+      #   working-directory: terraform
+
+      - name: Terraform fmt (check only)
+        id: fmt-check
         run: terraform fmt -check
         continue-on-error: true
         working-directory: terraform
+
+      - name: Terraform fmt (write if needed)
+        if: steps.fmt-check.outcome == 'failure'
+        run: terraform fmt
+        working-directory: terraform
+
+      - name: Commit & Push formatted files
+        if: steps.fmt-check.outcome == 'failure'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add terraform
+          git commit -m "chore: auto-format terraform files"
+          git push
 
       - name: Terraform Init
         id: init
