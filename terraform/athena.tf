@@ -1,7 +1,7 @@
 data "aws_iam_account_alias" "current" {}
 
 locals {
-  account_alias         = data.aws_iam_account_alias.current.account_alias
+  account_alias          = data.aws_iam_account_alias.current.account_alias
   athena_engine_version = "Athena engine version 3"
 }
 
