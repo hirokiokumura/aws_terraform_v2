@@ -1,13 +1,13 @@
 data "aws_iam_account_alias" "current" {}
 
 locals {
-  account_alias = data.aws_iam_account_alias.current.account_alias
+  account_alias         = data.aws_iam_account_alias.current.account_alias
   athena_engine_version = "Athena engine version 3"
 }
 
 
 resource "aws_athena_workgroup" "workgroup" {
-  name = "${local.account_alias}"
+  name = local.account_alias
 
   configuration {
     enforce_workgroup_configuration    = true
