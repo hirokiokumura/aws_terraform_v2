@@ -52,3 +52,7 @@ jobs:
         run: terraform plan -no-color
         continue-on-error: true
         working-directory: terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: terraform
