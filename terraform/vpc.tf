@@ -115,7 +115,7 @@ resource "aws_vpc_endpoint" "s3" {
   service_name      = "com.amazonaws.ap-northeast-1.s3"
   vpc_endpoint_type = "Gateway"
 
-  route_table_ids   = [
+  route_table_ids = [
     aws_route_table.rtb_subnet_primary_v1.id,
     aws_route_table.rtb_subnet_primary_v2.id,
     aws_route_table.rtb_subnet_secondary_v1.id,
