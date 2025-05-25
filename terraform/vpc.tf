@@ -115,6 +115,10 @@ resource "aws_vpc_endpoint" "s3" {
   service_name      = "com.amazonaws.ap-northeast-1.s3"
   vpc_endpoint_type = "Gateway"
 
+  subnet_ids = [
+    aws_subnet.primary_v1.id, aws_subnet.primary_v2.id
+  ]
+
   tags = {
     "Name" = "primary-s3"
   }
