@@ -27,19 +27,6 @@ resource "aws_subnet" "primary_v2" {
 }
 
 # ルートテーブル for subnet1
-resource "aws_route_table" "rtb_subnet1" {
-  vpc_id = aws_vpc.example.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "rtb-subnet1"
-  }
-}
-
 resource "aws_route_table" "rtb_subnet_primary_v1" {
   vpc_id = aws_vpc.primary.id
 
