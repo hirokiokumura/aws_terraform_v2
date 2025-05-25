@@ -97,11 +97,15 @@ resource "aws_route_table" "rtb_subnet_secondary_v2" {
 
 # サブネットとルートテーブルの紐付け
 resource "aws_route_table_association" "assoc_subnet_secondary_v1" {
-  subnet_id      = aws_subnet.secondary_v1.vpc_id
+  subnet_id      = aws_subnet.secondary_v1.id
   route_table_id = aws_route_table.rtb_subnet_secondary_v1.id
+
+  depends_on = [ aws_route_table.rtb_subnet_secondary_v1 ]
 }
 
+
 resource "aws_route_table_association" "assoc_subnet_secondary_v2" {
-  subnet_id      = aws_subnet.secondary_v2.vpc_id
+  subnet_id      = aws_subnet.secondary_v2.id
   route_table_id = aws_route_table.rtb_subnet_secondary_v2.id
+  depends_on = [ aws_route_table.rtb_subnet_secondary_v2 ]
 }
