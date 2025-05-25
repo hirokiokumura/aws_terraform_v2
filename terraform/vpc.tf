@@ -25,7 +25,7 @@ resource "aws_subnet" "primary_v2" {
 }
 
 resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
-  vpc_id     = aws_vpc.main.id
+  vpc_id     = aws_vpc.primary.id
   cidr_block = "10.0.4.0/24"
 }
 
