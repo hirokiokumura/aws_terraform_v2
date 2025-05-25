@@ -109,3 +109,13 @@ resource "aws_route_table_association" "assoc_subnet_secondary_v2" {
   route_table_id = aws_route_table.rtb_subnet_secondary_v2.id
   depends_on     = [aws_route_table.rtb_subnet_secondary_v2]
 }
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.id
+  service_name      = "com.amazonaws.ap-northeast-1.s3"
+  vpc_endpoint_type = "Gateway"
+
+  tags = {
+    "Name" = "primary-s3"
+  }
+}
