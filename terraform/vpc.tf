@@ -26,6 +26,48 @@ resource "aws_subnet" "primary_v2" {
   }
 }
 
+# ルートテーブル for subnet1
+resource "aws_route_table" "rtb_subnet1" {
+  vpc_id = aws_vpc.example.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "rtb-subnet1"
+  }
+}
+
+resource "aws_route_table" "rtb_subnet_primary_v1" {
+  vpc_id = aws_vpc.primary.id
+
+
+  tags = {
+    Name = "rtb-subnet_primary_v1"
+  }
+}
+
+resource "aws_route_table" "rtb_subnet_primary_v2" {
+  vpc_id = aws_vpc.primary.id
+
+  tags = {
+    Name = "rtb-subnet_primary_v2"
+  }
+}
+
+# サブネットとルートテーブルの紐付け
+resource "aws_route_table_association" "assoc_subnet_primary_v1" {
+  subnet_id      = aws_subnet.primary_v1.id
+  route_table_id = aws_route_table.rtb_subnet_primary_v1.id
+}
+
+resource "aws_route_table_association" "assoc_subnet_primary_v2" {
+  subnet_id      = aws_subnet.primary_v2.id
+  route_table_id = aws_route_table.rtb_subnet_primary_v2.id
+}
+
 resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
   vpc_id     = aws_vpc.primary.id
   cidr_block = "10.1.4.0/24"
@@ -47,4 +89,32 @@ resource "aws_subnet" "secondary_v2" {
   tags = {
     Name = "subnet_secondary_v2"
   }
+}
+
+resource "aws_route_table" "rtb_subnet_secondary_v1" {
+  vpc_id = aws_vpc.secondary.id
+
+
+  tags = {
+    Name = "rtb-subnet_secondary_v1"
+  }
+}
+
+resource "aws_route_table" "rtb_subnet_secondary_v2" {
+  vpc_id = aws_vpc.secondary.id
+
+  tags = {
+    Name = "rtb-subnet_secondary_v2"
+  }
+}
+
+# サブネットとルートテーブルの紐付け
+resource "aws_route_table_association" "assoc_subnet_secondary_v1" {
+  subnet_id      = aws_subnet.secondary_v1.id
+  route_table_id = aws_route_table.rtb_subnet_secondary_v1.id
+}
+
+resource "aws_route_table_association" "assoc_subnet_secondary_v2" {
+  subnet_id      = aws_subnet.secondary_v2.id
+  route_table_id = aws_route_table.rtb_subnet_secondary_v2.id
 }
