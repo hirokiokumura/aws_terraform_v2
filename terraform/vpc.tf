@@ -88,7 +88,7 @@ resource "aws_route_table" "rtb_subnet_secondary_v1" {
 }
 
 resource "aws_route_table" "rtb_subnet_secondary_v2" {
-  vpc_id = aws_vpc_ipv4_cidr_block_association.secondary.vcp_id
+  vpc_id = aws_vpc_ipv4_cidr_block_association.secondary.vpc_id
 
   tags = {
     Name = "rtb-subnet_secondary_v2"
