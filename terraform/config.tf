@@ -25,7 +25,7 @@ data "aws_iam_policy_document" "config-service" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceAccount"
-      values   = ["${data.aws_caller_identity.self.account_id}"]
+      values   = ["${local.account_id}"]
     }
   }
   statement {
@@ -44,7 +44,7 @@ data "aws_iam_policy_document" "config-service" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceAccount"
-      values   = ["${data.aws_caller_identity.self.account_id}"]
+      values   = ["${local.account_id}"]
     }
   }
   statement {
@@ -58,7 +58,7 @@ data "aws_iam_policy_document" "config-service" {
       "s3:PutObject"
     ]
     resources = [
-      "${aws_s3_bucket.this.arn}/AWSLogs/${data.aws_caller_identity.self.account_id}/Config/*"
+      "${aws_s3_bucket.this.arn}/AWSLogs/${local.account_id}/Config/*"
     ]
     condition {
       test     = "StringEquals"
@@ -68,7 +68,7 @@ data "aws_iam_policy_document" "config-service" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceAccount"
-      values   = ["${data.aws_caller_identity.self.account_id}"]
+      values   = ["${local.account_id}"]
     }
   }
 }
