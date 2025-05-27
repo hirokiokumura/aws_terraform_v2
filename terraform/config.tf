@@ -1,7 +1,7 @@
 data "aws_caller_identity" "self" {}
 
 locals {
-  account_id            = data.aws_caller_identity.self.account_id
+  account_id = data.aws_caller_identity.self.account_id
 }
 
 resource "aws_s3_bucket" "this" {
