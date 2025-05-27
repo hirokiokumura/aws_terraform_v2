@@ -1,3 +1,9 @@
+data "aws_caller_identity" "self" {}
+
+locals {
+  account_id            = data.aws_caller_identity.self.account_id
+}
+
 resource "aws_s3_bucket" "this" {
   bucket = "${local.account_alias}-config-bucket"
 }
