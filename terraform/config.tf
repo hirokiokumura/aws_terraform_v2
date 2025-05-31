@@ -80,11 +80,11 @@ data "aws_iam_policy_document" "config-service" {
 }
 
 # S3 Public Access Block
-resource "aws_s3_bucket_public_access_block" "config-service" {
-  bucket = aws_s3_bucket.this.id
+# resource "aws_s3_bucket_public_access_block" "config-service" {
+#   bucket = aws_s3_bucket.this.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
+#   block_public_acls       = false
+#   block_public_policy     = false
+#   ignore_public_acls      = false
+#   restrict_public_buckets = false
+# }
