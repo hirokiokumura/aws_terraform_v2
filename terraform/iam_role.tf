@@ -1,5 +1,5 @@
 resource "aws_iam_role" "AutomationAssumeRole" {
-  name               = "AutomationAssumeRole"
+  name = "AutomationAssumeRole"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -27,8 +27,8 @@ resource "aws_iam_role" "AutomationAssumeRole" {
 }
 
 resource "aws_iam_role_policy" "AutomationAssumeRolePolicy" {
-  name   = "AutomationAssumeRolePolicy"
-  role   = aws_iam_role.AutomationAssumeRole.id
+  name = "AutomationAssumeRolePolicy"
+  role = aws_iam_role.AutomationAssumeRole.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
