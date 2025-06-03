@@ -38,7 +38,8 @@ resource "aws_iam_role_policy" "AutomationAssumeRolePolicy" {
           "s3:GetBucketPolicy",
           "s3:PutBucketPolicy",
           "s3:GetBucketAcl",
-          "s3:PutBucketAcl"
+          "s3:PutBucketAcl",
+          "s3:PutBucketPublicAccessBlock",
         ]
         Resource = "arn:aws:s3:::*"
       },
