@@ -136,6 +136,10 @@ resource "aws_vpc_endpoint" "ssm" {
   ]
 
   private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.example1.id, aws_subnet.example2.id
+  ]
 }
 
 resource "aws_vpc_endpoint" "ssmmessages" {
@@ -148,6 +152,10 @@ resource "aws_vpc_endpoint" "ssmmessages" {
   ]
 
   private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.primary_v1.id, aws_subnet.primary_v2.id
+  ]
 }
 
 resource "aws_vpc_endpoint" "ec2messages" {
@@ -160,4 +168,8 @@ resource "aws_vpc_endpoint" "ec2messages" {
   ]
 
   private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.primary_v1.id, aws_subnet.primary_v2.id
+  ]
 }
