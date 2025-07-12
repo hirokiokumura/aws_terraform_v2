@@ -138,7 +138,7 @@ resource "aws_vpc_endpoint" "ssm" {
   private_dns_enabled = true
 
   subnet_ids = [
-    aws_subnet.example1.id, aws_subnet.example2.id
+    aws_subnet.primary_v1.id, aws_subnet.primary_v2.id
   ]
 }
 
