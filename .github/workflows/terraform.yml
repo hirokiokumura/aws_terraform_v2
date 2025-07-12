@@ -7,6 +7,7 @@ on:
 env:
   ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ID }}:role/${{ secrets.ROLE_NAME }}
   SESSION_NAME: gh-oidc-${{ github.run_id }}-${{ github.run_attempt }}
+  IP_ADDRESS: ${{ secrets.IP_ADDRESS }}
 
 jobs:
   connect:
@@ -82,5 +83,7 @@ jobs:
         working-directory: terraform
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -var="ip_address=${IP_ADDRESS}"
         working-directory: terraform
+        env:
+          IP_ADDRESS: ${{ secrets.IP_ADDRESS }}
