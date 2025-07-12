@@ -78,9 +78,11 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color
+        run: terraform plan -no-color -var="ip_address=${IP_ADDRESS}"
         continue-on-error: true
         working-directory: terraform
+        env:
+          IP_ADDRESS: ${{ secrets.IP_ADDRESS }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve -var="ip_address=${IP_ADDRESS}"
