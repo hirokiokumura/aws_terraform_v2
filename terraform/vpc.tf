@@ -140,6 +140,9 @@ resource "aws_vpc_endpoint" "ssm" {
   subnet_ids = [
     aws_subnet.primary_v1.id
   ]
+  tags = {
+    Name = "ssm-endpoint"
+  }
 }
 
 resource "aws_vpc_endpoint" "ssmmessages" {
@@ -156,4 +159,7 @@ resource "aws_vpc_endpoint" "ssmmessages" {
   subnet_ids = [
     aws_subnet.primary_v1.id
   ]
+  tags = {
+    Name = "ssmmessages-endpoint"
+  }
 }
