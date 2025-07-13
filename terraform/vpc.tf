@@ -126,40 +126,40 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id            = aws_vpc.primary.id
-  service_name      = "com.amazonaws.ap-northeast-1.ssm"
-  vpc_endpoint_type = "Interface"
+# resource "aws_vpc_endpoint" "ssm" {
+#   vpc_id            = aws_vpc.primary.id
+#   service_name      = "com.amazonaws.ap-northeast-1.ssm"
+#   vpc_endpoint_type = "Interface"
 
-  security_group_ids = [
-    aws_security_group.this.id,
-  ]
+#   security_group_ids = [
+#     aws_security_group.this.id,
+#   ]
 
-  private_dns_enabled = true
+#   private_dns_enabled = true
 
-  subnet_ids = [
-    aws_subnet.primary_v1.id
-  ]
-  tags = {
-    Name = "ssm-endpoint"
-  }
-}
+#   subnet_ids = [
+#     aws_subnet.primary_v1.id
+#   ]
+#   tags = {
+#     Name = "ssm-endpoint"
+#   }
+# }
 
-resource "aws_vpc_endpoint" "ssmmessages" {
-  vpc_id            = aws_vpc.primary.id
-  service_name      = "com.amazonaws.ap-northeast-1.ssmmessages"
-  vpc_endpoint_type = "Interface"
+# resource "aws_vpc_endpoint" "ssmmessages" {
+#   vpc_id            = aws_vpc.primary.id
+#   service_name      = "com.amazonaws.ap-northeast-1.ssmmessages"
+#   vpc_endpoint_type = "Interface"
 
-  security_group_ids = [
-    aws_security_group.this.id,
-  ]
+#   security_group_ids = [
+#     aws_security_group.this.id,
+#   ]
 
-  private_dns_enabled = true
+#   private_dns_enabled = true
 
-  subnet_ids = [
-    aws_subnet.primary_v1.id
-  ]
-  tags = {
-    Name = "ssmmessages-endpoint"
-  }
-}
+#   subnet_ids = [
+#     aws_subnet.primary_v1.id
+#   ]
+#   tags = {
+#     Name = "ssmmessages-endpoint"
+#   }
+# }
