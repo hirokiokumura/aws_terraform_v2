@@ -29,32 +29,32 @@ resource "aws_subnet" "primary_1c" {
 }
 
 # ルートテーブル for subnet1
-resource "aws_route_table" "rtb_subnet_primary_v1" {
+resource "aws_route_table" "rtb_subnet_primary_1a" {
   vpc_id = aws_vpc.primary.id
 
 
   tags = {
-    Name = "rtb-subnet_primary_v1"
+    Name = "rtb-subnet_primary_1a"
   }
 }
 
-resource "aws_route_table" "rtb_subnet_primary_v2" {
+resource "aws_route_table" "rtb_subnet_primary_1c" {
   vpc_id = aws_vpc.primary.id
 
   tags = {
-    Name = "rtb-subnet_primary_v2"
+    Name = "rtb-subnet_primary_1c"
   }
 }
 
 # サブネットとルートテーブルの紐付け
-resource "aws_route_table_association" "assoc_subnet_primary_v1" {
-  subnet_id      = aws_subnet.primary_v1.id
-  route_table_id = aws_route_table.rtb_subnet_primary_v1.id
+resource "aws_route_table_association" "assoc_subnet_primary_1a" {
+  subnet_id      = aws_subnet.primary_1a.id
+  route_table_id = aws_route_table.rtb_subnet_primary_1a.id
 }
 
-resource "aws_route_table_association" "assoc_subnet_primary_v2" {
-  subnet_id      = aws_subnet.primary_v2.id
-  route_table_id = aws_route_table.rtb_subnet_primary_v2.id
+resource "aws_route_table_association" "assoc_subnet_primary_1c" {
+  subnet_id      = aws_subnet.primary_1c.id
+  route_table_id = aws_route_table.rtb_subnet_primary_1c.id
 }
 
 resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
@@ -83,36 +83,36 @@ resource "aws_subnet" "secondary_1c" {
   }
 }
 
-resource "aws_route_table" "rtb_subnet_secondary_v1" {
+resource "aws_route_table" "rtb_subnet_secondary_1a" {
   vpc_id = aws_vpc_ipv4_cidr_block_association.secondary.vpc_id
 
 
   tags = {
-    Name = "rtb-subnet_secondary_v1"
+    Name = "rtb-subnet_secondary_1a"
   }
 }
 
-resource "aws_route_table" "rtb_subnet_secondary_v2" {
+resource "aws_route_table" "rtb_subnet_secondary_1c" {
   vpc_id = aws_vpc_ipv4_cidr_block_association.secondary.vpc_id
 
   tags = {
-    Name = "rtb-subnet_secondary_v2"
+    Name = "rtb-subnet_secondary_1c"
   }
 }
 
 # サブネットとルートテーブルの紐付け
-resource "aws_route_table_association" "assoc_subnet_secondary_v1" {
-  subnet_id      = aws_subnet.secondary_v1.id
-  route_table_id = aws_route_table.rtb_subnet_secondary_v1.id
+resource "aws_route_table_association" "assoc_subnet_secondary_1a" {
+  subnet_id      = aws_subnet.secondary_1a.id
+  route_table_id = aws_route_table.rtb_subnet_secondary_1a.id
 
-  depends_on = [aws_route_table.rtb_subnet_secondary_v1]
+  depends_on = [aws_route_table.rtb_subnet_secondary_1a]
 }
 
 
-resource "aws_route_table_association" "assoc_subnet_secondary_v2" {
-  subnet_id      = aws_subnet.secondary_v2.id
-  route_table_id = aws_route_table.rtb_subnet_secondary_v2.id
-  depends_on     = [aws_route_table.rtb_subnet_secondary_v2]
+resource "aws_route_table_association" "assoc_subnet_secondary_1c" {
+  subnet_id      = aws_subnet.secondary_1c.id
+  route_table_id = aws_route_table.rtb_subnet_secondary_1c.id
+  depends_on     = [aws_route_table.rtb_subnet_secondary_1c]
 }
 
 resource "aws_vpc_endpoint" "s3" {
@@ -121,10 +121,10 @@ resource "aws_vpc_endpoint" "s3" {
   vpc_endpoint_type = "Gateway"
 
   route_table_ids = [
-    aws_route_table.rtb_subnet_primary_v1.id,
-    aws_route_table.rtb_subnet_primary_v2.id,
-    aws_route_table.rtb_subnet_secondary_v1.id,
-    aws_route_table.rtb_subnet_secondary_v2.id
+    aws_route_table.rtb_subnet_primary_1a.id,
+    aws_route_table.rtb_subnet_primary_1c.id,
+    aws_route_table.rtb_subnet_secondary_1a.id,
+    aws_route_table.rtb_subnet_secondary_1c.id
   ]
   tags = {
     "Name" = "primary-gateway-s3"
