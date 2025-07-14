@@ -8,54 +8,54 @@ resource "aws_vpc" "primary" {
   }
 }
 
-# resource "aws_subnet" "primary_1a" {
-#   vpc_id            = aws_vpc.primary.id
-#   availability_zone = "ap-northeast-1a"
-#   cidr_block        = "10.0.0.0/23"
+resource "aws_subnet" "primary_1a" {
+  vpc_id            = aws_vpc.primary.id
+  availability_zone = "ap-northeast-1a"
+  cidr_block        = "10.0.0.0/23"
 
-#   tags = {
-#     Name = "subnet_primary_1a"
-#   }
-# }
+  tags = {
+    Name = "subnet_primary_1a"
+  }
+}
 
-# resource "aws_subnet" "primary_1c" {
-#   vpc_id            = aws_vpc.primary.id
-#   availability_zone = "ap-northeast-1c"
-#   cidr_block        = "10.0.2.0/23"
+resource "aws_subnet" "primary_1c" {
+  vpc_id            = aws_vpc.primary.id
+  availability_zone = "ap-northeast-1c"
+  cidr_block        = "10.0.2.0/23"
 
-#   tags = {
-#     Name = "subnet_primary_1c"
-#   }
-# }
+  tags = {
+    Name = "subnet_primary_1c"
+  }
+}
 
 # # ルートテーブル for subnet1
-# resource "aws_route_table" "rtb_subnet_primary_1a" {
-#   vpc_id = aws_vpc.primary.id
+resource "aws_route_table" "rtb_subnet_primary_1a" {
+  vpc_id = aws_vpc.primary.id
 
 
-#   tags = {
-#     Name = "rtb-subnet_primary_1a"
-#   }
-# }
+  tags = {
+    Name = "rtb-subnet_primary_1a"
+  }
+}
 
-# resource "aws_route_table" "rtb_subnet_primary_1c" {
-#   vpc_id = aws_vpc.primary.id
+resource "aws_route_table" "rtb_subnet_primary_1c" {
+  vpc_id = aws_vpc.primary.id
 
-#   tags = {
-#     Name = "rtb-subnet_primary_1c"
-#   }
-# }
+  tags = {
+    Name = "rtb-subnet_primary_1c"
+  }
+}
 
 # # サブネットとルートテーブルの紐付け
-# resource "aws_route_table_association" "assoc_subnet_primary_1a" {
-#   subnet_id      = aws_subnet.primary_1a.id
-#   route_table_id = aws_route_table.rtb_subnet_primary_1a.id
-# }
+resource "aws_route_table_association" "assoc_subnet_primary_1a" {
+  subnet_id      = aws_subnet.primary_1a.id
+  route_table_id = aws_route_table.rtb_subnet_primary_1a.id
+}
 
-# resource "aws_route_table_association" "assoc_subnet_primary_1c" {
-#   subnet_id      = aws_subnet.primary_1c.id
-#   route_table_id = aws_route_table.rtb_subnet_primary_1c.id
-# }
+resource "aws_route_table_association" "assoc_subnet_primary_1c" {
+  subnet_id      = aws_subnet.primary_1c.id
+  route_table_id = aws_route_table.rtb_subnet_primary_1c.id
+}
 
 # resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
 #   vpc_id     = aws_vpc.primary.id
