@@ -8,23 +8,23 @@ resource "aws_vpc" "primary" {
   }
 }
 
-resource "aws_subnet" "primary_v1" {
+resource "aws_subnet" "primary_1a" {
   vpc_id            = aws_vpc.primary.id
   availability_zone = "ap-northeast-1a"
   cidr_block        = "10.0.0.0/23"
 
   tags = {
-    Name = "subnet_primary_v1"
+    Name = "subnet_primary_1a"
   }
 }
 
-resource "aws_subnet" "primary_v2" {
+resource "aws_subnet" "primary_1c" {
   vpc_id            = aws_vpc.primary.id
   availability_zone = "ap-northeast-1c"
   cidr_block        = "10.0.2.0/23"
 
   tags = {
-    Name = "subnet_primary_v2"
+    Name = "subnet_primary_1c"
   }
 }
 
@@ -62,24 +62,24 @@ resource "aws_vpc_ipv4_cidr_block_association" "secondary" {
   cidr_block = "10.1.4.0/24"
 }
 
-resource "aws_subnet" "secondary_v1" {
+resource "aws_subnet" "secondary_1a" {
   vpc_id            = aws_vpc_ipv4_cidr_block_association.secondary.vpc_id
   availability_zone = "ap-northeast-1a"
   cidr_block        = "10.1.4.0/25"
 
   tags = {
-    Name = "subnet_secondary_v1"
+    Name = "subnet_secondary_1a"
   }
 }
 
-resource "aws_subnet" "secondary_v2" {
+resource "aws_subnet" "secondary_1c" {
   vpc_id            = aws_vpc_ipv4_cidr_block_association.secondary.vpc_id
   availability_zone = "ap-northeast-1c"
   cidr_block        = "10.1.4.128/25"
 
 
   tags = {
-    Name = "subnet_secondary_v2"
+    Name = "subnet_secondary_1c"
   }
 }
 
