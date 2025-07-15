@@ -23,6 +23,15 @@ resource "aws_security_group_rule" "ingress_https_v2" {
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
+  cidr_blocks       = [aws_vpc_ipv4_cidr_block_association.secondary.cidr_block]
+}
+
+resource "aws_security_group_rule" "ingress_https_v2" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.this.id
   cidr_blocks       = [aws_vpc.primary.cidr_block]
 }
 
