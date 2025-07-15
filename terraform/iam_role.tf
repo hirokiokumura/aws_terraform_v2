@@ -87,6 +87,11 @@ resource "aws_iam_role_policy_attachment" "ec2_attach_policy_v2" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "ec2_attach_policy_v3" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+}
+
 resource "aws_iam_instance_profile" "ec2_instance_profile" {
   name = "ec2-example-instance-profile"
   role = aws_iam_role.ec2_role.name

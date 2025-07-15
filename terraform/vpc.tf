@@ -104,7 +104,6 @@ resource "aws_route_table" "rtb_subnet_secondary_1c" {
 resource "aws_route_table_association" "assoc_subnet_secondary_1a" {
   subnet_id      = aws_subnet.secondary_1a.id
   route_table_id = aws_route_table.rtb_subnet_secondary_1a.id
-
   depends_on = [aws_route_table.rtb_subnet_secondary_1a]
 }
 
@@ -131,40 +130,59 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
-# resource "aws_vpc_endpoint" "ssm" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.ssm"
-#   vpc_endpoint_type = "Interface"
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id            = aws_vpc.primary.id
+  service_name      = "com.amazonaws.ap-northeast-1.ssm"
+  vpc_endpoint_type = "Interface"
 
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
+  security_group_ids = [
+    aws_security_group.this.id,
+  ]
 
-#   private_dns_enabled = true
+  private_dns_enabled = true
 
-#   subnet_ids = [
-#     aws_subnet.primary_v1.id
-#   ]
-#   tags = {
-#     Name = "ssm-endpoint"
-#   }
-# }
+  subnet_ids = [
+    aws_subnet.primary_1a.id
+  ]
+  tags = {
+    Name = "primary-1a-ssm"
+  }
+}
 
-# resource "aws_vpc_endpoint" "ssmmessages" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.ssmmessages"
-#   vpc_endpoint_type = "Interface"
+resource "aws_vpc_endpoint" "ssmmessages" {
+  vpc_id            = aws_vpc.primary.id
+  service_name      = "com.amazonaws.ap-northeast-1.ssmmessages"
+  vpc_endpoint_type = "Interface"
 
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
+  security_group_ids = [
+    aws_security_group.this.id,
+  ]
 
-#   private_dns_enabled = true
+  private_dns_enabled = true
 
-#   subnet_ids = [
-#     aws_subnet.primary_v1.id
-#   ]
-#   tags = {
-#     Name = "ssmmessages-endpoint"
-#   }
-# }
+  subnet_ids = [
+    aws_subnet.primary_1a.id
+  ]
+  tags = {
+    Name = "primary-1a-ssmmessages"
+  }
+}
+
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id            = aws_vpc.primary.id
+  service_name      = "com.amazonaws.ap-northeast-1.secretsmanager"
+  vpc_endpoint_type = "Interface"
+
+  security_group_ids = [
+    aws_security_group.this.id,
+  ]
+
+  private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.primary_1a.id
+  ]
+  tags = {
+    Name = "primary-1a-secretsmanager"
+  }
+}
