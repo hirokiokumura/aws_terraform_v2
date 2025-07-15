@@ -17,7 +17,7 @@ resource "aws_security_group_rule" "ingress_https" {
   description       = "Allow HTTPS from home IP"
 }
 
-resource "aws_security_group_rule" "ingress_https_v2" {
+resource "aws_security_group_rule" "ingress_https_secondary" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
