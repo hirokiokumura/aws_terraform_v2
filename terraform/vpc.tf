@@ -104,7 +104,7 @@ resource "aws_route_table" "rtb_subnet_secondary_1c" {
 resource "aws_route_table_association" "assoc_subnet_secondary_1a" {
   subnet_id      = aws_subnet.secondary_1a.id
   route_table_id = aws_route_table.rtb_subnet_secondary_1a.id
-  depends_on = [aws_route_table.rtb_subnet_secondary_1a]
+  depends_on     = [aws_route_table.rtb_subnet_secondary_1a]
 }
 
 
