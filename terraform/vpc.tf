@@ -186,3 +186,22 @@ resource "aws_vpc_endpoint" "secretsmanager" {
     Name = "primary-1a-secretsmanager"
   }
 }
+
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id            = aws_vpc.primary.id
+  service_name      = "com.amazonaws.ap-northeast-1.ec2"
+  vpc_endpoint_type = "Interface"
+
+  security_group_ids = [
+    aws_security_group.this.id,
+  ]
+
+  private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.primary_1a.id
+  ]
+  tags = {
+    Name = "primary-1a-ec2"
+  }
+}
