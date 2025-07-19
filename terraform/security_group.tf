@@ -44,7 +44,8 @@ resource "aws_security_group_rule" "engress_https" {
   cidr_blocks       = [aws_vpc.primary.cidr_block]
 }
 
-resource "aws_security_group_rule" "engress_https" {
+# S3 Gateway Endpoint Security Group Rule
+resource "aws_security_group_rule" "ingress_s3_gateway" {
   type              = "egress"
   from_port         = 443
   to_port           = 443
