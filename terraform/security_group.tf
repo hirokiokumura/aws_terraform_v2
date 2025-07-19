@@ -35,21 +35,22 @@ resource "aws_security_group_rule" "ingress_https_v2" {
   cidr_blocks       = [aws_vpc.primary.cidr_block]
 }
 
-resource "aws_security_group_rule" "engress_https" {
-  type              = "egress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.this.id
-  cidr_blocks       = [aws_vpc.primary.cidr_block]
-}
+# resource "aws_security_group_rule" "engress_https" {
+#   type              = "egress"
+#   from_port         = 443
+#   to_port           = 443
+#   protocol          = "tcp"
+#   security_group_id = aws_security_group.this.id
+#   cidr_blocks       = [aws_vpc.primary.cidr_block]
+# }
 
 # S3 Gateway Endpoint Security Group Rule
-resource "aws_security_group_rule" "ingress_s3_gateway" {
+resource "aws_security_group_rule" "egress_https_vpc" {
   type              = "egress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
   cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow HTTPS to VPC only"
 }
