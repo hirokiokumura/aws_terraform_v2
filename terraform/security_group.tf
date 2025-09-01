@@ -45,12 +45,17 @@ resource "aws_security_group_rule" "ingress_https_v2" {
 # }
 
 # S3 Gateway Endpoint Security Group Rule
-resource "aws_security_group_rule" "egress_https_vpc" {
+resource "aws_security_group_rule" "egress_https_s3" {
   type              = "egress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
-  cidr_blocks       = ["0.0.0.0/0"]
-  description       = "Allow HTTPS to VPC only"
+  prefix_list_ids   = [data.aws_prefix_list.s3.id]
+  description       = "Allow HTTPS to S3 via VPC Gateway Endpoint"
+}
+
+# Data source for S3 prefix list
+data "aws_prefix_list" "s3" {
+  name = "com.amazonaws.ap-northeast-1.s3"
 }

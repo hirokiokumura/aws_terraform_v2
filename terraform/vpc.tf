@@ -205,3 +205,5 @@ resource "aws_vpc_endpoint" "s3" {
 #     Name = "primary-1a-ec2"
 #   }
 # }
+
+# sudo yum install -y postgresql17
