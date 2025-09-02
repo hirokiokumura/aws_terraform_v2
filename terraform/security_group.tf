@@ -7,32 +7,34 @@ resource "aws_security_group" "this" {
   }
 }
 
-resource "aws_security_group_rule" "ingress_https" {
+resource "aws_security_group_rule" "ingress_https_from_admin_ip" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
   cidr_blocks       = ["${var.ip_address}/32"]
-  description       = "Allow HTTPS from home IP"
+  description       = "Allow HTTPS from admin IP"
 }
 
-resource "aws_security_group_rule" "ingress_https_secondary" {
+resource "aws_security_group_rule" "ingress_https_from_secondary_vpc" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
   cidr_blocks       = [aws_vpc_ipv4_cidr_block_association.secondary.cidr_block]
+  description       = "Allow HTTPS from secondary VPC CIDR"
 }
 
-resource "aws_security_group_rule" "ingress_https_v2" {
+resource "aws_security_group_rule" "ingress_https_from_primary_vpc" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
   security_group_id = aws_security_group.this.id
   cidr_blocks       = [aws_vpc.primary.cidr_block]
+  description       = "Allow HTTPS from primary VPC CIDR"
 }
 
 # resource "aws_security_group_rule" "engress_https" {
