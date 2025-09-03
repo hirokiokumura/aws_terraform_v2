@@ -1,9 +1,9 @@
 resource "aws_security_group" "this" {
   vpc_id = aws_vpc.primary.id
-  name   = "security_group_v1"
+  name   = "internal-https-sg"
 
   tags = {
-    Name = "security_group_v1"
+    Name = "internal-https-sg"
   }
 }
 
