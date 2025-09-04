@@ -4,7 +4,7 @@ module "internal_https_sg" {
 
   name        = "internal-https-sg"
   description = "Security group for internal HTTPS access"
-  vpc_id      = aws_vpc.primary.id
+  vpc_id      = module.vpc.vpc_id
 
   ingress_with_cidr_blocks = [
     {
@@ -19,14 +19,14 @@ module "internal_https_sg" {
       to_port     = 443
       protocol    = "tcp"
       description = "Allow HTTPS from secondary VPC CIDR"
-      cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
+      cidr_blocks = local.secondary_cidr
     },
     {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
       description = "Allow HTTPS from primary VPC CIDR"
-      cidr_blocks = aws_vpc.primary.cidr_block
+      cidr_blocks = local.primary_vpc_cidr
     }
   ]
 
