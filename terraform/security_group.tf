@@ -36,7 +36,7 @@ module "internal_https_sg" {
       to_port         = 443
       protocol        = "tcp"
       description     = "Allow HTTPS to S3 via VPC Gateway Endpoint"
-      prefix_list_ids = data.aws_prefix_list.s3.id
+      prefix_list_ids = [data.aws_prefix_list.s3.id]
     }
   ]
 
