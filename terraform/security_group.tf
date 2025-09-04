@@ -1,6 +1,6 @@
 module "internal_https_sg" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 5.0"
+  version = "5.1.2"
 
   name        = "internal-https-sg"
   description = "Security group for internal HTTPS access"
