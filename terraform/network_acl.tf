@@ -25,26 +25,142 @@ resource "aws_network_acl" "custom" {
 # ============================================================================
 # Ingressルール: VPC内部通信
 # ============================================================================
-# 注意: VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われるため、
-#       これらのルールでカバーされます
+# セキュリティ強化: 最小権限の原則に基づき、必要なポートのみを許可
+# VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われる
 
-# Ingressルール: VPC内部通信（Primary CIDR）
-resource "aws_network_acl_rule" "ingress_vpc_primary" {
+# Ingressルール: VPC内部通信（Primary CIDR）- HTTPS（VPCエンドポイント用）
+resource "aws_network_acl_rule" "ingress_vpc_primary_https" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 50
-  protocol       = "-1" # All protocols
+  protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "10.0.0.0/22"
+  from_port      = 443
+  to_port        = 443
   egress         = false
 }
 
-# Ingressルール: VPC内部通信（Secondary CIDR）
-resource "aws_network_acl_rule" "ingress_vpc_secondary" {
+# Ingressルール: VPC内部通信（Primary CIDR）- エフェメラルポート
+resource "aws_network_acl_rule" "ingress_vpc_primary_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
-  rule_number    = 51
-  protocol       = "-1" # All protocols
+  rule_number    = 54
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 32768
+  to_port        = 65535
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Primary CIDR）- DNS TCP
+resource "aws_network_acl_rule" "ingress_vpc_primary_dns_tcp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 56
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 53
+  to_port        = 53
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Primary CIDR）- DNS UDP
+resource "aws_network_acl_rule" "ingress_vpc_primary_dns_udp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 57
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 53
+  to_port        = 53
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Primary CIDR）- ICMP
+resource "aws_network_acl_rule" "ingress_vpc_primary_icmp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 58
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  icmp_type      = -1
+  icmp_code      = -1
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- HTTPS（VPCエンドポイント用）
+# Secondary（EC2/ECS）からPrimary（VPCE）へのHTTPS接続
+# Primary視点: Secondaryからの443接続を受け入れる
+resource "aws_network_acl_rule" "ingress_vpc_secondary_https" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 60
+  protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "10.1.4.0/24"
+  from_port      = 443
+  to_port        = 443
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- PostgreSQL
+# Secondary（EC2/ECS）がクライアント、Primary（Aurora）がサーバー
+# Primary視点: Secondaryからの5432接続を受け入れる
+resource "aws_network_acl_rule" "ingress_vpc_secondary_postgresql" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 62
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 5432
+  to_port        = 5432
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- エフェメラルポート
+resource "aws_network_acl_rule" "ingress_vpc_secondary_ephemeral" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 64
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 32768
+  to_port        = 65535
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- DNS TCP
+resource "aws_network_acl_rule" "ingress_vpc_secondary_dns_tcp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 66
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 53
+  to_port        = 53
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- DNS UDP
+resource "aws_network_acl_rule" "ingress_vpc_secondary_dns_udp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 67
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 53
+  to_port        = 53
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）- ICMP
+resource "aws_network_acl_rule" "ingress_vpc_secondary_icmp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 68
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  icmp_type      = -1
+  icmp_code      = -1
   egress         = false
 }
 
@@ -146,26 +262,129 @@ resource "aws_network_acl_rule" "ingress_dns_udp" {
 # ============================================================================
 # Egressルール: VPC内部通信
 # ============================================================================
-# 注意: VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われるため、
-#       これらのルールでカバーされます
+# セキュリティ強化: 最小権限の原則に基づき、必要なポートのみを許可
+# VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われる
 
-# Egressルール: VPC内部通信（Primary CIDR）
-resource "aws_network_acl_rule" "egress_vpc_primary" {
+# Egressルール: VPC内部通信（Primary CIDR）- HTTPS（VPCエンドポイント用）
+resource "aws_network_acl_rule" "egress_vpc_primary_https" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 50
-  protocol       = "-1" # All protocols
+  protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "10.0.0.0/22"
+  from_port      = 443
+  to_port        = 443
   egress         = true
 }
 
-# Egressルール: VPC内部通信（Secondary CIDR）
-resource "aws_network_acl_rule" "egress_vpc_secondary" {
+# Egressルール: VPC内部通信（Primary CIDR）- PostgreSQL
+# Secondary（EC2/ECS）からPrimary（Aurora）への5432接続
+# Secondary視点: Primaryへの5432送信
+resource "aws_network_acl_rule" "egress_vpc_primary_postgresql" {
   network_acl_id = aws_network_acl.custom.id
-  rule_number    = 51
-  protocol       = "-1" # All protocols
+  rule_number    = 52
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 5432
+  to_port        = 5432
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Primary CIDR）- エフェメラルポート
+resource "aws_network_acl_rule" "egress_vpc_primary_ephemeral" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 54
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 32768
+  to_port        = 65535
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Primary CIDR）- DNS TCP
+resource "aws_network_acl_rule" "egress_vpc_primary_dns_tcp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 56
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 53
+  to_port        = 53
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Primary CIDR）- DNS UDP
+resource "aws_network_acl_rule" "egress_vpc_primary_dns_udp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 57
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  from_port      = 53
+  to_port        = 53
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Primary CIDR）- ICMP
+resource "aws_network_acl_rule" "egress_vpc_primary_icmp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 58
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  icmp_type      = -1
+  icmp_code      = -1
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Secondary CIDR）- エフェメラルポート
+# Primary（Aurora/VPCE）からSecondary（EC2/ECS）へのレスポンス送信用
+resource "aws_network_acl_rule" "egress_vpc_secondary_ephemeral" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 64
+  protocol       = "tcp"
   rule_action    = "allow"
   cidr_block     = "10.1.4.0/24"
+  from_port      = 32768
+  to_port        = 65535
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Secondary CIDR）- DNS TCP
+resource "aws_network_acl_rule" "egress_vpc_secondary_dns_tcp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 66
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 53
+  to_port        = 53
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Secondary CIDR）- DNS UDP
+resource "aws_network_acl_rule" "egress_vpc_secondary_dns_udp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 67
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 53
+  to_port        = 53
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Secondary CIDR）- ICMP
+resource "aws_network_acl_rule" "egress_vpc_secondary_icmp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 68
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  icmp_type      = -1
+  icmp_code      = -1
   egress         = true
 }
 
