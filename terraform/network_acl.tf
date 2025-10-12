@@ -3,10 +3,12 @@
 # ============================================================================
 # ルール番号体系:
 #   Ingress:
-#     100-199: 特定サービス用 (HTTPS: 100, SSH: 110など)
+#     50-99:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     100-199: インターネットからの特定サービス (HTTPS: 100)
 #     200-299: エフェメラルポート、DNS応答など
 #   Egress:
-#     100-199: 特定サービス用 (HTTPS: 100, DNS: 110-120など)
+#     50-99:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     100-199: インターネットへの特定サービス (HTTPS: 100, DNS: 110-120)
 #     200-299: エフェメラルポート、その他
 # ============================================================================
 
@@ -17,6 +19,36 @@ resource "aws_network_acl" "custom" {
     Name = "custom-nacl"
   }
 }
+
+# ============================================================================
+# Ingressルール: VPC内部通信
+# ============================================================================
+# 注意: VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われるため、
+#       これらのルールでカバーされます
+
+# Ingressルール: VPC内部通信（Primary CIDR）
+resource "aws_network_acl_rule" "ingress_vpc_primary" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 50
+  protocol       = "-1"  # All protocols
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  egress         = false
+}
+
+# Ingressルール: VPC内部通信（Secondary CIDR）
+resource "aws_network_acl_rule" "ingress_vpc_secondary" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 51
+  protocol       = "-1"  # All protocols
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  egress         = false
+}
+
+# ============================================================================
+# Ingressルール: インターネットからの通信
+# ============================================================================
 
 # Ingressルール: HTTPS（443）を許可
 resource "aws_network_acl_rule" "ingress_https" {
@@ -31,9 +63,8 @@ resource "aws_network_acl_rule" "ingress_https" {
 }
 
 # Ingressルール: エフェメラルポート（HTTPSレスポンス用）
-# Linuxカーネルデフォルト: 32768-60999
-# Windowsデフォルト: 49152-65535
-# 両方をカバーするため32768-65535を許可
+# Linuxカーネルデフォルト: 32768-60999 を使用
+# セキュリティのため、必要最小限の範囲に限定
 resource "aws_network_acl_rule" "ingress_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 200
@@ -41,7 +72,7 @@ resource "aws_network_acl_rule" "ingress_ephemeral" {
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
   from_port      = 32768
-  to_port        = 65535
+  to_port        = 60999
   egress         = false
 }
 
@@ -68,6 +99,36 @@ resource "aws_network_acl_rule" "ingress_dns_udp" {
   to_port        = 53
   egress         = false
 }
+
+# ============================================================================
+# Egressルール: VPC内部通信
+# ============================================================================
+# 注意: VPCエンドポイント（S3 Gateway等）経由の通信もVPC内部通信として扱われるため、
+#       これらのルールでカバーされます
+
+# Egressルール: VPC内部通信（Primary CIDR）
+resource "aws_network_acl_rule" "egress_vpc_primary" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 50
+  protocol       = "-1"  # All protocols
+  rule_action    = "allow"
+  cidr_block     = "10.0.0.0/22"
+  egress         = true
+}
+
+# Egressルール: VPC内部通信（Secondary CIDR）
+resource "aws_network_acl_rule" "egress_vpc_secondary" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 51
+  protocol       = "-1"  # All protocols
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  egress         = true
+}
+
+# ============================================================================
+# Egressルール: インターネットへの通信
+# ============================================================================
 
 # Egressルール: HTTPS（443）を許可
 resource "aws_network_acl_rule" "egress_https" {
@@ -107,6 +168,7 @@ resource "aws_network_acl_rule" "egress_dns_udp" {
 
 # Egressルール: エフェメラルポート（HTTPSリクエスト送信用）
 # クライアントからHTTPSリクエストを送信する際、送信元ポートとしてエフェメラルポートを使用
+# Linuxカーネルデフォルト: 32768-60999 を使用
 resource "aws_network_acl_rule" "egress_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 200
@@ -114,7 +176,7 @@ resource "aws_network_acl_rule" "egress_ephemeral" {
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
   from_port      = 32768
-  to_port        = 65535
+  to_port        = 60999
   egress         = true
 }
 
