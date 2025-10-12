@@ -222,23 +222,6 @@ resource "aws_network_acl_rule" "egress_dns_udp" {
   egress         = true
 }
 
-# Egressルール: エフェメラルポート（HTTPSリクエスト送信用）
-# クライアントからHTTPSリクエストを送信する際、送信元ポートとしてエフェメラルポートを使用
-# AWS推奨範囲: 32768-65535
-# - Linuxカーネルデフォルト: 32768-60999
-# - Windowsデフォルト: 49152-65535
-# - NAT Gateway互換性のため、AWS推奨の全範囲を許可
-resource "aws_network_acl_rule" "egress_ephemeral" {
-  network_acl_id = aws_network_acl.custom.id
-  rule_number    = 200
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
-  from_port      = 32768
-  to_port        = 65535
-  egress         = true
-}
-
 # サブネットにカスタムNACLを関連付け
 resource "aws_network_acl_association" "primary_1a" {
   subnet_id      = aws_subnet.primary_1a.id
