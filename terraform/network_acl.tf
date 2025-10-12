@@ -65,6 +65,32 @@ resource "aws_network_acl_rule" "ingress_icmp_echo_reply" {
   egress         = false
 }
 
+# Ingressルール: ICMP Destination Unreachable
+# Path MTU Discoveryに必須（特にCode 4: Fragmentation Needed）
+resource "aws_network_acl_rule" "ingress_icmp_dest_unreachable" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 91
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  icmp_type      = 3  # Destination Unreachable
+  icmp_code      = -1
+  egress         = false
+}
+
+# Ingressルール: ICMP Time Exceeded
+# tracerouteコマンドに必要
+resource "aws_network_acl_rule" "ingress_icmp_time_exceeded" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 92
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  icmp_type      = 11  # Time Exceeded
+  icmp_code      = -1
+  egress         = false
+}
+
 # Ingressルール: HTTPS（443）を許可
 resource "aws_network_acl_rule" "ingress_https" {
   network_acl_id = aws_network_acl.custom.id
@@ -78,8 +104,10 @@ resource "aws_network_acl_rule" "ingress_https" {
 }
 
 # Ingressルール: エフェメラルポート（HTTPSレスポンス用）
-# Linuxカーネルデフォルト: 32768-60999 を使用
-# セキュリティのため、必要最小限の範囲に限定
+# AWS推奨範囲: 32768-65535
+# - Linuxカーネルデフォルト: 32768-60999
+# - Windowsデフォルト: 49152-65535
+# - NAT Gateway互換性のため、AWS推奨の全範囲を許可
 resource "aws_network_acl_rule" "ingress_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 200
@@ -87,7 +115,7 @@ resource "aws_network_acl_rule" "ingress_ephemeral" {
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
   from_port      = 32768
-  to_port        = 60999
+  to_port        = 65535
   egress         = false
 }
 
@@ -196,7 +224,10 @@ resource "aws_network_acl_rule" "egress_dns_udp" {
 
 # Egressルール: エフェメラルポート（HTTPSリクエスト送信用）
 # クライアントからHTTPSリクエストを送信する際、送信元ポートとしてエフェメラルポートを使用
-# Linuxカーネルデフォルト: 32768-60999 を使用
+# AWS推奨範囲: 32768-65535
+# - Linuxカーネルデフォルト: 32768-60999
+# - Windowsデフォルト: 49152-65535
+# - NAT Gateway互換性のため、AWS推奨の全範囲を許可
 resource "aws_network_acl_rule" "egress_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 200
@@ -204,7 +235,7 @@ resource "aws_network_acl_rule" "egress_ephemeral" {
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
   from_port      = 32768
-  to_port        = 60999
+  to_port        = 65535
   egress         = true
 }
 
