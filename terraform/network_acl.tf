@@ -3,11 +3,13 @@
 # ============================================================================
 # ルール番号体系:
 #   Ingress:
-#     50-99:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     50-89:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     90-99:   ICMP (Echo Reply: 90)
 #     100-199: インターネットからの特定サービス (HTTPS: 100)
 #     200-299: エフェメラルポート、DNS応答など
 #   Egress:
-#     50-99:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     50-89:   VPC内部通信 (Primary CIDR: 50, Secondary CIDR: 51)
+#     90-99:   ICMP (Echo Request: 90)
 #     100-199: インターネットへの特定サービス (HTTPS: 100, DNS: 110-120)
 #     200-299: エフェメラルポート、その他
 # ============================================================================
@@ -49,6 +51,19 @@ resource "aws_network_acl_rule" "ingress_vpc_secondary" {
 # ============================================================================
 # Ingressルール: インターネットからの通信
 # ============================================================================
+
+# Ingressルール: ICMPエコー応答（Pingレスポンス）
+# VPCからインターネットへのPingに対する応答を受信
+resource "aws_network_acl_rule" "ingress_icmp_echo_reply" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 90
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  icmp_type      = 0  # Echo Reply
+  icmp_code      = -1
+  egress         = false
+}
 
 # Ingressルール: HTTPS（443）を許可
 resource "aws_network_acl_rule" "ingress_https" {
@@ -129,6 +144,19 @@ resource "aws_network_acl_rule" "egress_vpc_secondary" {
 # ============================================================================
 # Egressルール: インターネットへの通信
 # ============================================================================
+
+# Egressルール: ICMPエコー要求（Ping送信）
+# VPCからインターネットへPingを送信
+resource "aws_network_acl_rule" "egress_icmp_echo_request" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 90
+  protocol       = "icmp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  icmp_type      = 8  # Echo Request
+  icmp_code      = -1
+  egress         = true
+}
 
 # Egressルール: HTTPS（443）を許可
 resource "aws_network_acl_rule" "egress_https" {
