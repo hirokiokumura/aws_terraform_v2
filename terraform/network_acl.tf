@@ -40,18 +40,6 @@ resource "aws_network_acl_rule" "ingress_vpc_primary_https" {
   egress         = false
 }
 
-# Ingressルール: VPC内部通信（Primary CIDR）- PostgreSQL
-resource "aws_network_acl_rule" "ingress_vpc_primary_postgresql" {
-  network_acl_id = aws_network_acl.custom.id
-  rule_number    = 52
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "10.0.0.0/22"
-  from_port      = 5432
-  to_port        = 5432
-  egress         = false
-}
-
 # Ingressルール: VPC内部通信（Primary CIDR）- エフェメラルポート
 resource "aws_network_acl_rule" "ingress_vpc_primary_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
@@ -100,19 +88,9 @@ resource "aws_network_acl_rule" "ingress_vpc_primary_icmp" {
   egress         = false
 }
 
-# Ingressルール: VPC内部通信（Secondary CIDR）- HTTPS（VPCエンドポイント用）
-resource "aws_network_acl_rule" "ingress_vpc_secondary_https" {
-  network_acl_id = aws_network_acl.custom.id
-  rule_number    = 60
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "10.1.4.0/24"
-  from_port      = 443
-  to_port        = 443
-  egress         = false
-}
-
 # Ingressルール: VPC内部通信（Secondary CIDR）- PostgreSQL
+# Secondary（EC2/ECS）がクライアント、Primary（Aurora）がサーバー
+# Primary視点: Secondaryからの5432接続を受け入れる
 resource "aws_network_acl_rule" "ingress_vpc_secondary_postgresql" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 62
@@ -286,6 +264,8 @@ resource "aws_network_acl_rule" "egress_vpc_primary_https" {
 }
 
 # Egressルール: VPC内部通信（Primary CIDR）- PostgreSQL
+# Secondary（EC2/ECS）からPrimary（Aurora）への5432接続
+# Secondary視点: Primaryへの5432送信
 resource "aws_network_acl_rule" "egress_vpc_primary_postgresql" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 52
@@ -345,31 +325,8 @@ resource "aws_network_acl_rule" "egress_vpc_primary_icmp" {
   egress         = true
 }
 
-# Egressルール: VPC内部通信（Secondary CIDR）- HTTPS（VPCエンドポイント用）
-resource "aws_network_acl_rule" "egress_vpc_secondary_https" {
-  network_acl_id = aws_network_acl.custom.id
-  rule_number    = 60
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "10.1.4.0/24"
-  from_port      = 443
-  to_port        = 443
-  egress         = true
-}
-
-# Egressルール: VPC内部通信（Secondary CIDR）- PostgreSQL
-resource "aws_network_acl_rule" "egress_vpc_secondary_postgresql" {
-  network_acl_id = aws_network_acl.custom.id
-  rule_number    = 62
-  protocol       = "tcp"
-  rule_action    = "allow"
-  cidr_block     = "10.1.4.0/24"
-  from_port      = 5432
-  to_port        = 5432
-  egress         = true
-}
-
 # Egressルール: VPC内部通信（Secondary CIDR）- エフェメラルポート
+# Primary（Aurora/VPCE）からSecondary（EC2/ECS）へのレスポンス送信用
 resource "aws_network_acl_rule" "egress_vpc_secondary_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 64
