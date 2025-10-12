@@ -32,7 +32,7 @@ resource "aws_network_acl" "custom" {
 resource "aws_network_acl_rule" "ingress_vpc_primary" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 50
-  protocol       = "-1"  # All protocols
+  protocol       = "-1" # All protocols
   rule_action    = "allow"
   cidr_block     = "10.0.0.0/22"
   egress         = false
@@ -42,7 +42,7 @@ resource "aws_network_acl_rule" "ingress_vpc_primary" {
 resource "aws_network_acl_rule" "ingress_vpc_secondary" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 51
-  protocol       = "-1"  # All protocols
+  protocol       = "-1" # All protocols
   rule_action    = "allow"
   cidr_block     = "10.1.4.0/24"
   egress         = false
@@ -60,7 +60,7 @@ resource "aws_network_acl_rule" "ingress_icmp_echo_reply" {
   protocol       = "icmp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  icmp_type      = 0  # Echo Reply
+  icmp_type      = 0 # Echo Reply
   icmp_code      = -1
   egress         = false
 }
@@ -73,7 +73,7 @@ resource "aws_network_acl_rule" "ingress_icmp_dest_unreachable" {
   protocol       = "icmp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  icmp_type      = 3  # Destination Unreachable
+  icmp_type      = 3 # Destination Unreachable
   icmp_code      = -1
   egress         = false
 }
@@ -86,7 +86,7 @@ resource "aws_network_acl_rule" "ingress_icmp_time_exceeded" {
   protocol       = "icmp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  icmp_type      = 11  # Time Exceeded
+  icmp_type      = 11 # Time Exceeded
   icmp_code      = -1
   egress         = false
 }
@@ -153,7 +153,7 @@ resource "aws_network_acl_rule" "ingress_dns_udp" {
 resource "aws_network_acl_rule" "egress_vpc_primary" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 50
-  protocol       = "-1"  # All protocols
+  protocol       = "-1" # All protocols
   rule_action    = "allow"
   cidr_block     = "10.0.0.0/22"
   egress         = true
@@ -163,7 +163,7 @@ resource "aws_network_acl_rule" "egress_vpc_primary" {
 resource "aws_network_acl_rule" "egress_vpc_secondary" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 51
-  protocol       = "-1"  # All protocols
+  protocol       = "-1" # All protocols
   rule_action    = "allow"
   cidr_block     = "10.1.4.0/24"
   egress         = true
@@ -181,7 +181,7 @@ resource "aws_network_acl_rule" "egress_icmp_echo_request" {
   protocol       = "icmp"
   rule_action    = "allow"
   cidr_block     = "0.0.0.0/0"
-  icmp_type      = 8  # Echo Request
+  icmp_type      = 8 # Echo Request
   icmp_code      = -1
   egress         = true
 }
