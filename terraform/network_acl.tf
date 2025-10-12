@@ -88,6 +88,20 @@ resource "aws_network_acl_rule" "ingress_vpc_primary_icmp" {
   egress         = false
 }
 
+# Ingressルール: VPC内部通信（Secondary CIDR）- HTTPS（VPCエンドポイント用）
+# Secondary（EC2/ECS）からPrimary（VPCE）へのHTTPS接続
+# Primary視点: Secondaryからの443接続を受け入れる
+resource "aws_network_acl_rule" "ingress_vpc_secondary_https" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 60
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.1.4.0/24"
+  from_port      = 443
+  to_port        = 443
+  egress         = false
+}
+
 # Ingressルール: VPC内部通信（Secondary CIDR）- PostgreSQL
 # Secondary（EC2/ECS）がクライアント、Primary（Aurora）がサーバー
 # Primary視点: Secondaryからの5432接続を受け入れる
