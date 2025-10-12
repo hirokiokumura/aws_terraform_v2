@@ -1,4 +1,15 @@
+# ============================================================================
 # カスタムネットワークACL
+# ============================================================================
+# ルール番号体系:
+#   Ingress:
+#     100-199: 特定サービス用 (HTTPS: 100, SSH: 110など)
+#     200-299: エフェメラルポート、DNS応答など
+#   Egress:
+#     100-199: 特定サービス用 (HTTPS: 100, DNS: 110-120など)
+#     200-299: エフェメラルポート、その他
+# ============================================================================
+
 resource "aws_network_acl" "custom" {
   vpc_id = aws_vpc.primary.id
 
@@ -19,7 +30,10 @@ resource "aws_network_acl_rule" "ingress_https" {
   egress         = false
 }
 
-# Ingressルール: エフェメラルポート（レスポンス用）
+# Ingressルール: エフェメラルポート（HTTPSレスポンス用）
+# Linuxカーネルデフォルト: 32768-60999
+# Windowsデフォルト: 49152-65535
+# 両方をカバーするため32768-65535を許可
 resource "aws_network_acl_rule" "ingress_ephemeral" {
   network_acl_id = aws_network_acl.custom.id
   rule_number    = 200
@@ -28,6 +42,30 @@ resource "aws_network_acl_rule" "ingress_ephemeral" {
   cidr_block     = "0.0.0.0/0"
   from_port      = 32768
   to_port        = 65535
+  egress         = false
+}
+
+# Ingressルール: DNS TCP レスポンス
+resource "aws_network_acl_rule" "ingress_dns_tcp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 210
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
+  egress         = false
+}
+
+# Ingressルール: DNS UDP レスポンス
+resource "aws_network_acl_rule" "ingress_dns_udp" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 220
+  protocol       = "udp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
   egress         = false
 }
 
@@ -64,6 +102,19 @@ resource "aws_network_acl_rule" "egress_dns_udp" {
   cidr_block     = "0.0.0.0/0"
   from_port      = 53
   to_port        = 53
+  egress         = true
+}
+
+# Egressルール: エフェメラルポート（HTTPSリクエスト送信用）
+# クライアントからHTTPSリクエストを送信する際、送信元ポートとしてエフェメラルポートを使用
+resource "aws_network_acl_rule" "egress_ephemeral" {
+  network_acl_id = aws_network_acl.custom.id
+  rule_number    = 200
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 32768
+  to_port        = 65535
   egress         = true
 }
 
