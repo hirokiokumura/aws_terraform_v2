@@ -1,6 +1,10 @@
 # pre-commit hooks for Terraform security and quality
 # See https://pre-commit.com for more information
 
+# グローバル設定
+default_stages: [commit]
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
   # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -58,7 +62,9 @@ repos:
         description: Validate Terraform configuration
         args:
           - --hook-config=--retry-once-with-cleanup=true
-          - --tf-init-args=-upgrade
+          # 注意: -upgrade は削除しました
+          # .terraform.lock.hcl の予期せぬ変更を防ぐため
+          # バージョンアップが必要な場合は手動で terraform init -upgrade を実行してください
 
       # Terraform docsの自動生成（オプション）
       - id: terraform_docs
@@ -84,11 +90,14 @@ repos:
         args:
           - --args=--skip-dirs="**/.terraform"
           - --args=--format=compact
+          - --args=--scanners=config,secret,vuln
+          - --args=--severity=HIGH,CRITICAL
 
       # Checkovによるセキュリティスキャン
       - id: terraform_checkov
         name: Checkov security scan
         description: Run Checkov security checks
+        files: ^terraform/.*\.tf$
         args:
           - --args=--quiet
           - --args=--compact
