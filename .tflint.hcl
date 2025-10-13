@@ -53,14 +53,16 @@ rule "aws_instance_invalid_ami" {
 }
 
 # 無効なIAMポリシーを検出
-rule "aws_iam_policy_document_invalid_json" {
-  enabled = true
-}
+# Note: aws_iam_policy_document_invalid_json は存在しないルールのためコメントアウト
+# rule "aws_iam_policy_document_invalid_json" {
+#   enabled = true
+# }
 
 # S3バケットの暗号化設定を検証
-rule "aws_s3_bucket_example_lifecycle_rule" {
-  enabled = false  # プロジェクト要件に応じて有効化
-}
+# Note: aws_s3_bucket_example_lifecycle_rule は存在しないルールのためコメントアウト
+# rule "aws_s3_bucket_example_lifecycle_rule" {
+#   enabled = false  # プロジェクト要件に応じて有効化
+# }
 
 # ============================================================================
 # Terraform標準ルール
