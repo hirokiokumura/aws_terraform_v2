@@ -27,7 +27,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# Terraform lock file (commit this to version control)
+# Terraform lock file
+# 注意: .terraform.lock.hcl はバージョン管理にコミットすべきファイルです
+# 依存関係の再現性を保証するため、コミットしてください
 # .terraform.lock.hcl
 
 # ============================================================================
@@ -40,6 +42,10 @@ terraform.rc
 # ============================================================================
 # Pre-commit
 # ============================================================================
+
+# Pre-commit cache and temporary files
+.pre-commit-cache/
+.pre-commit-*.log
 
 # ============================================================================
 # IDE and Editor

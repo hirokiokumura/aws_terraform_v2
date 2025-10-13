@@ -43,6 +43,7 @@ VPCネットワーキング、CloudTrailログ、Athena分析、AWS Configコン
 ### オプションツール（推奨）
 
 - [tflint](https://github.com/terraform-linters/tflint) - Terraform Linter
+- [trivy](https://trivy.dev/) - マルチスキャナー（IaC、脆弱性、機密情報）
 - [checkov](https://www.checkov.io/) - セキュリティスキャナー
 - [terraform-docs](https://terraform-docs.io/) - ドキュメント生成
 
@@ -73,12 +74,17 @@ pre-commit install --hook-type commit-msg
 
 ```bash
 # Homebrew（macOS/Linux）
-brew install tflint terraform-docs checkov
+brew install tflint trivy terraform-docs checkov
 
 # または各ツール個別にインストール
 
 # TFLint
 curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+# Trivy
+brew install trivy
+# またはLinuxの場合
+curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
 # Checkov
 pip install checkov
@@ -129,17 +135,20 @@ terraform destroy
 `ip_address`変数はセキュリティグループ設定に必要です：
 
 **方法1: コマンドライン引数**
+
 ```bash
 terraform plan -var="ip_address=1.2.3.4"
 ```
 
 **方法2: 環境変数**
+
 ```bash
 export TF_VAR_ip_address=1.2.3.4
 terraform plan
 ```
 
 **方法3: terraform.tfvarsファイル**
+
 ```bash
 # terraform/terraform.tfvars を作成
 echo 'ip_address = "1.2.3.4"' > terraform/terraform.tfvars
@@ -173,6 +182,9 @@ terraform plan
 ### 手動でのセキュリティスキャン
 
 ```bash
+# Trivyによるスキャン（IaC、脆弱性、機密情報）
+trivy config terraform/
+
 # Checkovによるスキャン
 checkov -d terraform/
 

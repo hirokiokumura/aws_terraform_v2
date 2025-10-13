@@ -1,14 +1,17 @@
 # TFLint configuration for Terraform security and best practices
 
 config {
-  # モジュールの検査を有効化
-  module = true
-
   # 変数の未使用を検出
   force = false
 
   # 警告をエラーとして扱わない
   disabled_by_default = false
+
+  # モジュールの検査タイプ（v0.54.0以降の新しい設定）
+  # all: すべてのモジュールを検査
+  # local: ローカルモジュールのみ検査
+  # none: モジュール検査を無効化
+  call_module_type = "all"
 }
 
 # AWS プラグイン設定

@@ -77,10 +77,13 @@ repos:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
           - --hook-config=--delegate-chdir
 
-      # tfvalidateによる追加検証
-      - id: terraform_tfsec
-        name: Terraform tfsec (deprecated, use trivy)
-        description: Security scan with tfsec
+      # Trivyによるセキュリティスキャン（IaC、脆弱性、機密情報）
+      - id: terraform_trivy
+        name: Trivy security scan
+        description: Run Trivy security checks for IaC, vulnerabilities, and secrets
+        args:
+          - --args=--skip-dirs="**/.terraform"
+          - --args=--format=compact
 
       # Checkovによるセキュリティスキャン
       - id: terraform_checkov
