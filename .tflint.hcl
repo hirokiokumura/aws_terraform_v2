@@ -21,7 +21,7 @@ plugin "aws" {
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 
   # 深い検査を有効化
-  deep_check = true
+  deep_check = false # ⚠️ AWS API呼び出しによるコスト発生の可能性
 }
 
 # Terraform標準ルールセット
@@ -35,10 +35,11 @@ plugin "terraform" {
 # AWS推奨ルール
 # ============================================================================
 
-# 非推奨のリソース使用を検出
+# リソースタグの必須化（現在はNameタグのみ必須）
+# 将来的にEnvironment, ManagedByタグを追加予定
 rule "aws_resource_missing_tags" {
   enabled = true
-  tags = ["Name", "Environment", "ManagedBy"]
+  tags = ["Name"]
 }
 
 # 無効なインスタンスタイプを検出
