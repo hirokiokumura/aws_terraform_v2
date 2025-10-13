@@ -1,0 +1,116 @@
+# pre-commit hooks for Terraform security and quality
+# See https://pre-commit.com for more information
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # 末尾の空白を削除
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: Remove trailing whitespace at end of lines
+
+      # ファイル末尾に改行を追加
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensure files end with a newline
+
+      # YAMLファイルの検証
+      - id: check-yaml
+        name: Check YAML syntax
+        description: Validate YAML file syntax
+        args: ['--unsafe']  # Allow custom tags
+
+      # JSONファイルの検証
+      - id: check-json
+        name: Check JSON syntax
+        description: Validate JSON file syntax
+
+      # マージコンフリクトマーカーの検出
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        description: Detect merge conflict markers
+
+      # 大きなファイルの追加を防止
+      - id: check-added-large-files
+        name: Check for large files
+        description: Prevent large files from being committed
+        args: ['--maxkb=500']
+
+      # 実行権限の不要な追加を防止
+      - id: check-executables-have-shebangs
+        name: Check executables have shebangs
+        description: Ensure executable files have shebangs
+
+  # Terraform specific hooks
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.88.4
+    hooks:
+      # Terraformファイルの自動フォーマット
+      - id: terraform_fmt
+        name: Terraform fmt
+        description: Format Terraform files with terraform fmt
+
+      # Terraform設定の検証
+      - id: terraform_validate
+        name: Terraform validate
+        description: Validate Terraform configuration
+        args:
+          - --hook-config=--retry-once-with-cleanup=true
+          - --tf-init-args=-upgrade
+
+      # Terraform docsの自動生成（オプション）
+      - id: terraform_docs
+        name: Terraform docs
+        description: Generate Terraform documentation
+        args:
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+
+      # tflintによる静的解析
+      - id: terraform_tflint
+        name: Terraform tflint
+        description: Lint Terraform files with tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+          - --hook-config=--delegate-chdir
+
+      # tfvalidateによる追加検証
+      - id: terraform_tfsec
+        name: Terraform tfsec (deprecated, use trivy)
+        description: Security scan with tfsec
+
+      # Checkovによるセキュリティスキャン
+      - id: terraform_checkov
+        name: Checkov security scan
+        description: Run Checkov security checks
+        args:
+          - --args=--quiet
+          - --args=--compact
+          - --args=--framework=terraform
+
+      # terraform-docsによるドキュメント生成（各モジュール用）
+      - id: terraform_docs_without_aggregate_type_defaults
+        name: Terraform docs (modules)
+        description: Generate module documentation
+        files: ^terraform/modules/
+
+  # Markdownファイルのリント
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        name: Markdown lint
+        description: Lint Markdown files
+        args: ['--fix']
+
+  # コミットメッセージの検証（オプション）
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+        name: Commitizen check
+        description: Check commit message format
+        stages: [commit-msg]
