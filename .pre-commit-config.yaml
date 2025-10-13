@@ -83,21 +83,23 @@ repos:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
           - --hook-config=--delegate-chdir
 
-      # Trivyによるセキュリティスキャン（IaC、脆弱性、機密情報）
+      # Trivyによるセキュリティスキャン（IaC設定、機密情報）
+      # Note: vulnスキャナーはTerraformコードには不要なため除外（パフォーマンス向上）
       - id: terraform_trivy
         name: Trivy security scan
-        description: Run Trivy security checks for IaC, vulnerabilities, and secrets
+        description: Run Trivy security checks for IaC configurations and secrets
         args:
           - --args=--skip-dirs="**/.terraform"
           - --args=--format=compact
-          - --args=--scanners=config,secret,vuln
+          - --args=--scanners=config,secret
           - --args=--severity=HIGH,CRITICAL
 
       # Checkovによるセキュリティスキャン
+      # Note: terraform/とmodules/配下のすべての.tfファイルをスキャン
       - id: terraform_checkov
         name: Checkov security scan
         description: Run Checkov security checks
-        files: ^terraform/.*\.tf$
+        files: ^(terraform|modules)/.*\.tf$
         args:
           - --args=--quiet
           - --args=--compact
