@@ -36,6 +36,12 @@ variable "enable_postgresql" {
   default     = false
 }
 
+variable "vpc_cidr_blocks" {
+  description = "VPC CIDRブロックのリスト（PostgreSQL等のVPC内部通信専用ポート制限用）"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_icmp" {
   description = "ICMP (Ping, Path MTU Discovery, traceroute) を許可するか"
   type        = bool

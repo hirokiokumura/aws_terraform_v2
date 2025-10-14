@@ -113,14 +113,16 @@ resource "aws_network_acl_rule" "ingress_dns_udp" {
 # Ingressルール: PostgreSQL（5432）を許可
 # 用途:
 #   - VPC内部通信: EC2/ECS → Aurora PostgreSQL
+# セキュリティ:
+#   - VPC CIDRブロックのみに制限（外部からのアクセスを防止）
 resource "aws_network_acl_rule" "ingress_postgresql" {
-  count = var.enable_postgresql ? 1 : 0
+  count = var.enable_postgresql && length(var.vpc_cidr_blocks) > 0 ? length(var.vpc_cidr_blocks) : 0
 
   network_acl_id = aws_network_acl.this.id
-  rule_number    = 140
+  rule_number    = 140 + count.index
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = var.vpc_cidr_blocks[count.index]
   from_port      = 5432
   to_port        = 5432
   egress         = false
@@ -239,14 +241,16 @@ resource "aws_network_acl_rule" "egress_dns_udp" {
 # Egressルール: PostgreSQL（5432）を許可
 # 用途:
 #   - VPC内部通信: EC2/ECS → Aurora PostgreSQL
+# セキュリティ:
+#   - VPC CIDRブロックのみに制限（外部への不要な接続を防止）
 resource "aws_network_acl_rule" "egress_postgresql" {
-  count = var.enable_postgresql ? 1 : 0
+  count = var.enable_postgresql && length(var.vpc_cidr_blocks) > 0 ? length(var.vpc_cidr_blocks) : 0
 
   network_acl_id = aws_network_acl.this.id
-  rule_number    = 130
+  rule_number    = 130 + count.index
   protocol       = "tcp"
   rule_action    = "allow"
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = var.vpc_cidr_blocks[count.index]
   from_port      = 5432
   to_port        = 5432
   egress         = true

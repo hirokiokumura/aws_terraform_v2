@@ -35,6 +35,12 @@ module "custom_nacl" {
   enable_postgresql = true # PostgreSQL通信を許可（Aurora用）
   enable_icmp       = true # ICMP通信を許可
 
+  # VPC内部通信専用ポート（PostgreSQL等）のCIDR制限
+  vpc_cidr_blocks = [
+    "10.0.0.0/22",  # Primary CIDR (VPCエンドポイント、NAT Gateway、Aurora)
+    "10.1.4.0/24",  # Secondary CIDR (EC2、ECS)
+  ]
+
   tags = {
     Name        = "custom-nacl"
     Environment = "production"
