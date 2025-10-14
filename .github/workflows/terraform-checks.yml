@@ -1,0 +1,82 @@
+name: Terraform Quality Checks
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - 'modules/**'
+      - '.pre-commit-config.yaml'
+      - '.tflint.hcl'
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Install terraform-docs
+        run: |
+          TERRAFORM_DOCS_VERSION="v0.18.0"
+          curl -sSLo ./terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-$(uname | tr '[:upper:]' '[:lower:]')-amd64.tar.gz
+          tar -xzf terraform-docs.tar.gz
+          chmod +x terraform-docs
+          sudo mv terraform-docs /usr/local/bin/
+          terraform-docs --version
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+          trivy --version
+
+      - name: Install pre-commit and checkov
+        run: |
+          pip install pre-commit checkov
+          pre-commit --version
+          checkov --version
+
+      - name: Run pre-commit (read-only checks)
+        run: |
+          # ファイルを修正しないチェックのみ実行
+          pre-commit run trailing-whitespace --all-files
+          pre-commit run end-of-file-fixer --all-files
+          pre-commit run check-yaml --all-files
+          pre-commit run check-json --all-files
+          pre-commit run check-merge-conflict --all-files
+          pre-commit run check-added-large-files --all-files
+          pre-commit run terraform_fmt --all-files
+
+      - name: Run terraform validate (separate step)
+        run: |
+          cd terraform && terraform init -backend=false && terraform validate
+          cd ../modules/cloudtrail && terraform init -backend=false && terraform validate
+        continue-on-error: false
+
+      - name: Run TFLint (informational)
+        run: pre-commit run terraform_tflint --all-files || true
+        continue-on-error: true
+
+      - name: Run security scans (informational)
+        run: |
+          pre-commit run terraform_trivy --all-files || true
+          pre-commit run terraform_checkov --all-files || true
+        continue-on-error: true

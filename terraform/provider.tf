@@ -1,4 +1,7 @@
 terraform {
+  # Terraformバージョンの指定（TFLint要件）
+  required_version = ">= 1.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"

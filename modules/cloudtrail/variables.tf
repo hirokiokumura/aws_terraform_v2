@@ -19,6 +19,6 @@ variable "aws_account_id" {
 }
 
 variable "environment" {
-  type = string
+  type    = string
   default = "stg"
 }
