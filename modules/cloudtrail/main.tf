@@ -16,7 +16,7 @@ module "bucket" {
 
 resource "aws_cloudwatch_log_group" "example" {
   count = var.environment == "prod" ? 1 : 0
-  name = "aws-cloudtrail-logs-${var.aws_account_id}"
+  name  = "aws-cloudtrail-logs-${var.aws_account_id}"
 }
 
 resource "aws_cloudtrail" "this" {
