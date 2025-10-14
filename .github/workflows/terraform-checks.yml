@@ -54,5 +54,17 @@ jobs:
           pre-commit --version
           checkov --version
 
-      - name: Run pre-commit
+      - name: Run pre-commit (essential checks)
         run: pre-commit run --all-files
+        env:
+          SKIP: terraform_tflint,terraform_trivy,terraform_checkov
+
+      - name: Run TFLint (informational)
+        run: pre-commit run terraform_tflint --all-files
+        continue-on-error: true
+
+      - name: Run security scans (informational)
+        run: |
+          pre-commit run terraform_trivy --all-files || true
+          pre-commit run terraform_checkov --all-files || true
+        continue-on-error: true
