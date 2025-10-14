@@ -54,13 +54,25 @@ jobs:
           pre-commit --version
           checkov --version
 
-      - name: Run pre-commit (essential checks)
-        run: pre-commit run --all-files
-        env:
-          SKIP: terraform_tflint,terraform_trivy,terraform_checkov
+      - name: Run pre-commit (read-only checks)
+        run: |
+          # ファイルを修正しないチェックのみ実行
+          pre-commit run trailing-whitespace --all-files
+          pre-commit run end-of-file-fixer --all-files
+          pre-commit run check-yaml --all-files
+          pre-commit run check-json --all-files
+          pre-commit run check-merge-conflict --all-files
+          pre-commit run check-added-large-files --all-files
+          pre-commit run terraform_fmt --all-files
+
+      - name: Run terraform validate (separate step)
+        run: |
+          cd terraform && terraform init -backend=false && terraform validate
+          cd ../modules/cloudtrail && terraform init -backend=false && terraform validate
+        continue-on-error: false
 
       - name: Run TFLint (informational)
-        run: pre-commit run terraform_tflint --all-files
+        run: pre-commit run terraform_tflint --all-files || true
         continue-on-error: true
 
       - name: Run security scans (informational)
