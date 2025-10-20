@@ -120,41 +120,37 @@ module "vpc_endpoints" {
 
   vpc_id = aws_vpc.primary.id
 
-  # VPCエンドポイントの定義
-  endpoints = {
-    # ゲートウェイ型エンドポイント
+  # ゲートウェイ型エンドポイントの定義
+  gateway_endpoints = {
     s3 = {
       name         = "primary-gateway-s3"
       service_name = "com.amazonaws.ap-northeast-1.s3"
-      type         = "Gateway"
     }
+  }
 
-    # インターフェース型エンドポイント（必要に応じてコメントを外す）
+  # インターフェース型エンドポイントの定義（必要に応じてコメントを外す）
+  interface_endpoints = {
     # ssm = {
     #   name                = "primary-interface-ssm"
     #   service_name        = "com.amazonaws.ap-northeast-1.ssm"
-    #   type                = "Interface"
     #   private_dns_enabled = true
     # }
 
     # ssmmessages = {
     #   name                = "primary-interface-ssmmessages"
     #   service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
-    #   type                = "Interface"
     #   private_dns_enabled = true
     # }
 
     # secretsmanager = {
     #   name                = "primary-interface-secretsmanager"
     #   service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
-    #   type                = "Interface"
     #   private_dns_enabled = true
     # }
 
     # ec2 = {
     #   name                = "primary-interface-ec2"
     #   service_name        = "com.amazonaws.ap-northeast-1.ec2"
-    #   type                = "Interface"
     #   private_dns_enabled = true
     # }
   }
