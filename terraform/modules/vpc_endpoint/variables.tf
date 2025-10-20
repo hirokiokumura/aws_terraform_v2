@@ -41,7 +41,7 @@ variable "interface_endpoints" {
   default = {}
 }
 
-variable "route_table_ids" {
+variable "gateway_route_table_ids" {
   description = "ゲートウェイ型エンドポイントに関連付けるルートテーブルIDのリスト"
   type        = list(string)
   default     = []

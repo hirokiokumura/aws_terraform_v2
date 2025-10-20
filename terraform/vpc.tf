@@ -156,7 +156,7 @@ module "vpc_endpoints" {
   }
 
   # ゲートウェイ型エンドポイント用のルートテーブル
-  route_table_ids = [
+  gateway_route_table_ids = [
     aws_route_table.rtb_subnet_primary_1a.id,
     aws_route_table.rtb_subnet_primary_1c.id,
     aws_route_table.rtb_subnet_secondary_1a.id,

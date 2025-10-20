@@ -53,7 +53,7 @@ module "vpc_endpoints" {
   }
 
   # ゲートウェイ型エンドポイント用のルートテーブル
-  route_table_ids = [
+  gateway_route_table_ids = [
     aws_route_table.rtb_subnet_primary_1a.id,
     aws_route_table.rtb_subnet_primary_1c.id
   ]
@@ -96,7 +96,7 @@ module "gateway_endpoints" {
     }
   }
 
-  route_table_ids = [
+  gateway_route_table_ids = [
     aws_route_table.main.id
   ]
 }
@@ -140,7 +140,7 @@ module "interface_endpoints" {
 | `vpc_id` | string | はい | - | VPCエンドポイントを作成するVPCのID |
 | `gateway_endpoints` | map(object) | いいえ | {} | 作成するゲートウェイ型VPCエンドポイントの定義マップ |
 | `interface_endpoints` | map(object) | いいえ | {} | 作成するインターフェース型VPCエンドポイントの定義マップ |
-| `route_table_ids` | list(string) | いいえ | [] | ゲートウェイ型エンドポイントに関連付けるルートテーブルIDのリスト |
+| `gateway_route_table_ids` | list(string) | いいえ | [] | ゲートウェイ型エンドポイントに関連付けるルートテーブルIDのリスト |
 | `subnet_ids` | list(string) | いいえ | [] | インターフェース型エンドポイントに関連付けるサブネットIDのリスト |
 | `security_group_ids` | list(string) | いいえ | [] | インターフェース型エンドポイントに関連付けるセキュリティグループIDのリスト |
 | `tags` | map(string) | いいえ | {} | すべてのVPCエンドポイントに適用する共通タグ |
@@ -199,7 +199,7 @@ module "interface_endpoints" {
 
 ## 注意事項
 
-- ゲートウェイ型エンドポイントを作成する場合は、`route_table_ids`を必ず指定してください
+- ゲートウェイ型エンドポイントを作成する場合は、`gateway_route_table_ids`を必ず指定してください
 - インターフェース型エンドポイントを作成する場合は、`subnet_ids`と`security_group_ids`を必ず指定してください
 - インターフェース型エンドポイントは、複数のサブネットに配置することで高可用性を実現できます
 - プライベートDNSを有効にする場合（デフォルト）、VPCで`enableDnsHostnames`と`enableDnsSupport`が有効になっている必要があります
@@ -210,7 +210,7 @@ module "interface_endpoints" {
 
 1. **キーの重複を回避**: 同じサービス（例：S3）でゲートウェイ型とインターフェース型の両方を作成する場合、単一のマップではキーが重複してしまいます
 2. **明確な意図**: `gateway_endpoints`と`interface_endpoints`を分けることで、どのタイプのエンドポイントを作成しているか一目瞭然
-3. **必須パラメータの違い**: ゲートウェイ型は`route_table_ids`、インターフェース型は`subnet_ids`と`security_group_ids`が必要という違いを明確化
+3. **必須パラメータの違い**: ゲートウェイ型は`gateway_route_table_ids`、インターフェース型は`subnet_ids`と`security_group_ids`が必要という違いを明確化
 4. **設定項目の違い**: インターフェース型のみに存在する`private_dns_enabled`などの設定を適切に扱える
 
 ## ライセンス

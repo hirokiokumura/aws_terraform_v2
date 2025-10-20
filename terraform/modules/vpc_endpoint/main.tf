@@ -6,7 +6,7 @@ resource "aws_vpc_endpoint" "gateway" {
   service_name      = each.value.service_name
   vpc_endpoint_type = "Gateway"
 
-  route_table_ids = var.route_table_ids
+  route_table_ids = var.gateway_route_table_ids
 
   tags = merge(
     var.tags,
