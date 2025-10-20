@@ -25,7 +25,7 @@ resource "aws_vpc_endpoint" "interface" {
   service_name        = each.value.service_name
   vpc_endpoint_type   = "Interface"
   subnet_ids          = var.subnet_ids
-  security_group_ids  = var.security_group_ids
+  security_group_ids  = coalesce(each.value.security_group_ids, var.security_group_ids)
   private_dns_enabled = each.value.private_dns_enabled
 
   tags = merge(

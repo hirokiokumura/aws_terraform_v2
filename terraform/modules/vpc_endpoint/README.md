@@ -37,11 +37,14 @@ module "vpc_endpoints" {
       name                = "primary-interface-ssm"
       service_name        = "com.amazonaws.ap-northeast-1.ssm"
       private_dns_enabled = true
+      # デフォルトのセキュリティグループを使用（security_group_idsを指定しない）
     }
     ssmmessages = {
       name                = "primary-interface-ssmmessages"
       service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
       private_dns_enabled = true
+      # 個別のセキュリティグループを指定
+      security_group_ids = [aws_security_group.ssm_sg.id]
     }
     ec2 = {
       name         = "primary-interface-ec2"
@@ -49,6 +52,7 @@ module "vpc_endpoints" {
       additional_tags = {
         Environment = "production"
       }
+      # デフォルトのセキュリティグループを使用
     }
   }
 
@@ -112,13 +116,15 @@ module "interface_endpoints" {
 
   interface_endpoints = {
     ssm = {
-      name         = "ssm-interface"
-      service_name = "com.amazonaws.ap-northeast-1.ssm"
+      name                = "ssm-interface"
+      service_name        = "com.amazonaws.ap-northeast-1.ssm"
+      security_group_ids  = [aws_security_group.ssm_sg.id]
     }
     ec2messages = {
       name                = "ec2messages-interface"
       service_name        = "com.amazonaws.ap-northeast-1.ec2messages"
       private_dns_enabled = false
+      security_group_ids  = [aws_security_group.ec2_sg.id]
     }
   }
 
@@ -127,9 +133,7 @@ module "interface_endpoints" {
     aws_subnet.private_1c.id
   ]
 
-  security_group_ids = [
-    aws_security_group.vpc_endpoint.id
-  ]
+  # security_group_ids = [...]  # 各エンドポイントで個別に指定しているため不要
 }
 ```
 
@@ -142,7 +146,7 @@ module "interface_endpoints" {
 | `interface_endpoints` | map(object) | いいえ | {} | 作成するインターフェース型VPCエンドポイントの定義マップ |
 | `gateway_route_table_ids` | list(string) | いいえ | [] | ゲートウェイ型エンドポイントに関連付けるルートテーブルIDのリスト |
 | `subnet_ids` | list(string) | いいえ | [] | インターフェース型エンドポイントに関連付けるサブネットIDのリスト |
-| `security_group_ids` | list(string) | いいえ | [] | インターフェース型エンドポイントに関連付けるセキュリティグループIDのリスト |
+| `security_group_ids` | list(string) | いいえ | [] | インターフェース型エンドポイントに関連付けるデフォルトのセキュリティグループIDのリスト（各エンドポイントで個別に指定しない場合に使用） |
 | `tags` | map(string) | いいえ | {} | すべてのVPCエンドポイントに適用する共通タグ |
 
 ### gateway_endpoints オブジェクトの構造
@@ -159,10 +163,11 @@ module "interface_endpoints" {
 
 ```hcl
 {
-  name                = string       # エンドポイント名（タグに使用）
-  service_name        = string       # AWSサービス名（例: com.amazonaws.ap-northeast-1.ssm）
-  private_dns_enabled = bool         # オプション。デフォルト: true
-  additional_tags     = map(string)  # オプション。個別のエンドポイントに追加するタグ
+  name                = string        # エンドポイント名（タグに使用）
+  service_name        = string        # AWSサービス名（例: com.amazonaws.ap-northeast-1.ssm）
+  security_group_ids  = list(string)  # オプション。指定しない場合はモジュールレベルのデフォルト値を使用
+  private_dns_enabled = bool          # オプション。デフォルト: true
+  additional_tags     = map(string)   # オプション。個別のエンドポイントに追加するタグ
 }
 ```
 
@@ -200,7 +205,11 @@ module "interface_endpoints" {
 ## 注意事項
 
 - ゲートウェイ型エンドポイントを作成する場合は、`gateway_route_table_ids`を必ず指定してください
-- インターフェース型エンドポイントを作成する場合は、`subnet_ids`と`security_group_ids`を必ず指定してください
+- インターフェース型エンドポイントを作成する場合は、`subnet_ids`を必ず指定してください
+- セキュリティグループは以下のいずれかの方法で指定できます：
+  - 各エンドポイントごとに個別に`security_group_ids`を指定（柔軟性が高い）
+  - モジュールレベルの`security_group_ids`をデフォルト値として使用
+  - 両方を併用（一部のエンドポイントのみ個別指定、その他はデフォルト値を使用）
 - インターフェース型エンドポイントは、複数のサブネットに配置することで高可用性を実現できます
 - プライベートDNSを有効にする場合（デフォルト）、VPCで`enableDnsHostnames`と`enableDnsSupport`が有効になっている必要があります
 

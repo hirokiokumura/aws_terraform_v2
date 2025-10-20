@@ -28,6 +28,7 @@ variable "interface_endpoints" {
     値: {
       name                = エンドポイント名（タグに使用）
       service_name        = AWSサービス名（例: com.amazonaws.ap-northeast-1.ssm）
+      security_group_ids  = セキュリティグループIDのリスト（オプション、指定しない場合はモジュールレベルのデフォルト値を使用）
       private_dns_enabled = プライベートDNSを有効化するか（オプション、デフォルト: true）
       additional_tags     = 追加のタグ（オプション）
     }
@@ -35,6 +36,7 @@ variable "interface_endpoints" {
   type = map(object({
     name                = string
     service_name        = string
+    security_group_ids  = optional(list(string))
     private_dns_enabled = optional(bool, true)
     additional_tags     = optional(map(string), {})
   }))
@@ -54,7 +56,7 @@ variable "subnet_ids" {
 }
 
 variable "security_group_ids" {
-  description = "インターフェース型エンドポイントに関連付けるセキュリティグループIDのリスト"
+  description = "インターフェース型エンドポイントに関連付けるデフォルトのセキュリティグループIDのリスト（各エンドポイントで個別に指定しない場合に使用）"
   type        = list(string)
   default     = []
 }

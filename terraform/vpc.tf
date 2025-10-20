@@ -134,24 +134,28 @@ module "vpc_endpoints" {
     #   name                = "primary-interface-ssm"
     #   service_name        = "com.amazonaws.ap-northeast-1.ssm"
     #   private_dns_enabled = true
+    #   # security_group_ids = [aws_security_group.custom_sg.id]  # 個別に指定する場合
     # }
 
     # ssmmessages = {
     #   name                = "primary-interface-ssmmessages"
     #   service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
     #   private_dns_enabled = true
+    #   # デフォルトのセキュリティグループを使用（security_group_idsを指定しない）
     # }
 
     # secretsmanager = {
     #   name                = "primary-interface-secretsmanager"
     #   service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
     #   private_dns_enabled = true
+    #   # security_group_ids = [aws_security_group.secrets_sg.id]  # 個別に指定する場合
     # }
 
     # ec2 = {
     #   name                = "primary-interface-ec2"
     #   service_name        = "com.amazonaws.ap-northeast-1.ec2"
     #   private_dns_enabled = true
+    #   # デフォルトのセキュリティグループを使用
     # }
   }
 
