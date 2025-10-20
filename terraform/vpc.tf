@@ -114,96 +114,72 @@ resource "aws_route_table_association" "assoc_subnet_secondary_1c" {
   depends_on     = [aws_route_table.rtb_subnet_secondary_1c]
 }
 
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.primary.id
-  service_name      = "com.amazonaws.ap-northeast-1.s3"
-  vpc_endpoint_type = "Gateway"
+# VPCエンドポイントモジュールの呼び出し
+module "vpc_endpoints" {
+  source = "./modules/vpc_endpoint"
 
+  vpc_id = aws_vpc.primary.id
+
+  # VPCエンドポイントの定義
+  endpoints = {
+    # ゲートウェイ型エンドポイント
+    s3 = {
+      name         = "primary-gateway-s3"
+      service_name = "com.amazonaws.ap-northeast-1.s3"
+      type         = "Gateway"
+    }
+
+    # インターフェース型エンドポイント（必要に応じてコメントを外す）
+    # ssm = {
+    #   name                = "primary-interface-ssm"
+    #   service_name        = "com.amazonaws.ap-northeast-1.ssm"
+    #   type                = "Interface"
+    #   private_dns_enabled = true
+    # }
+
+    # ssmmessages = {
+    #   name                = "primary-interface-ssmmessages"
+    #   service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
+    #   type                = "Interface"
+    #   private_dns_enabled = true
+    # }
+
+    # secretsmanager = {
+    #   name                = "primary-interface-secretsmanager"
+    #   service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
+    #   type                = "Interface"
+    #   private_dns_enabled = true
+    # }
+
+    # ec2 = {
+    #   name                = "primary-interface-ec2"
+    #   service_name        = "com.amazonaws.ap-northeast-1.ec2"
+    #   type                = "Interface"
+    #   private_dns_enabled = true
+    # }
+  }
+
+  # ゲートウェイ型エンドポイント用のルートテーブル
   route_table_ids = [
     aws_route_table.rtb_subnet_primary_1a.id,
     aws_route_table.rtb_subnet_primary_1c.id,
     aws_route_table.rtb_subnet_secondary_1a.id,
     aws_route_table.rtb_subnet_secondary_1c.id
   ]
+
+  # インターフェース型エンドポイント用のサブネット（必要に応じてコメントを外す）
+  # subnet_ids = [
+  #   aws_subnet.primary_1a.id,
+  #   aws_subnet.primary_1c.id
+  # ]
+
+  # インターフェース型エンドポイント用のセキュリティグループ（必要に応じてコメントを外す）
+  # security_group_ids = [
+  #   aws_security_group.this.id
+  # ]
+
   tags = {
-    "Name" = "primary-gateway-s3"
+    Environment = "production"
+    ManagedBy   = "terraform"
   }
 }
-
-# resource "aws_vpc_endpoint" "ssm" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.ssm"
-#   vpc_endpoint_type = "Interface"
-
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
-
-#   private_dns_enabled = true
-
-#   subnet_ids = [
-#     aws_subnet.primary_1a.id
-#   ]
-#   tags = {
-#     Name = "primary-1a-ssm"
-#   }
-# }
-
-# resource "aws_vpc_endpoint" "ssmmessages" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.ssmmessages"
-#   vpc_endpoint_type = "Interface"
-
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
-
-#   private_dns_enabled = true
-
-#   subnet_ids = [
-#     aws_subnet.primary_1a.id
-#   ]
-#   tags = {
-#     Name = "primary-1a-ssmmessages"
-#   }
-# }
-
-# resource "aws_vpc_endpoint" "secretsmanager" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.secretsmanager"
-#   vpc_endpoint_type = "Interface"
-
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
-
-#   private_dns_enabled = true
-
-#   subnet_ids = [
-#     aws_subnet.primary_1a.id
-#   ]
-#   tags = {
-#     Name = "primary-1a-secretsmanager"
-#   }
-# }
-
-# resource "aws_vpc_endpoint" "ec2" {
-#   vpc_id            = aws_vpc.primary.id
-#   service_name      = "com.amazonaws.ap-northeast-1.ec2"
-#   vpc_endpoint_type = "Interface"
-
-#   security_group_ids = [
-#     aws_security_group.this.id,
-#   ]
-
-#   private_dns_enabled = true
-
-#   subnet_ids = [
-#     aws_subnet.primary_1a.id
-#   ]
-#   tags = {
-#     Name = "primary-1a-ec2"
-#   }
-# }
-
-# sudo yum install -y postgresql17
