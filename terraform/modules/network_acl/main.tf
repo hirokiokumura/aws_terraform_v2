@@ -7,8 +7,10 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 90
     protocol   = "icmp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
     icmp_type  = 0 # Echo Reply
     icmp_code  = -1
   }
@@ -17,8 +19,10 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 91
     protocol   = "icmp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
     icmp_type  = 3 # Destination Unreachable
     icmp_code  = -1
   }
@@ -27,8 +31,10 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 92
     protocol   = "icmp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
     icmp_type  = 11 # Time Exceeded
     icmp_code  = -1
   }
@@ -37,7 +43,7 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 100
     protocol   = "tcp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 443
     to_port    = 443
@@ -47,7 +53,7 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 200
     protocol   = "tcp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 32768
     to_port    = 65535
@@ -57,7 +63,7 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 210
     protocol   = "tcp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 53
     to_port    = 53
@@ -67,7 +73,7 @@ resource "aws_default_network_acl" "this" {
   ingress {
     rule_no    = 220
     protocol   = "udp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 53
     to_port    = 53
@@ -77,8 +83,10 @@ resource "aws_default_network_acl" "this" {
   egress {
     rule_no    = 90
     protocol   = "icmp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
     icmp_type  = 8 # Echo Request
     icmp_code  = -1
   }
@@ -87,7 +95,7 @@ resource "aws_default_network_acl" "this" {
   egress {
     rule_no    = 100
     protocol   = "tcp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 443
     to_port    = 443
@@ -97,7 +105,7 @@ resource "aws_default_network_acl" "this" {
   egress {
     rule_no    = 110
     protocol   = "tcp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 53
     to_port    = 53
@@ -107,7 +115,7 @@ resource "aws_default_network_acl" "this" {
   egress {
     rule_no    = 120
     protocol   = "udp"
-    rule_action = "allow"
+    action     = "allow"
     cidr_block = "0.0.0.0/0"
     from_port  = 53
     to_port    = 53

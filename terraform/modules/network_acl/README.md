@@ -88,3 +88,42 @@ module "network_acl" {
 ## ライセンス
 
 このモジュールはMITライセンスの下で公開されています。
+<!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.0 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.17.0 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_default_network_acl.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/default_network_acl) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_default_network_acl_id"></a> [default\_network\_acl\_id](#input\_default\_network\_acl\_id) | VPCのデフォルトNetwork ACL ID | `string` | n/a | yes |
+| <a name="input_name"></a> [name](#input\_name) | デフォルトNetwork ACLの名前タグ | `string` | `"default-nacl"` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | デフォルトNetwork ACLに適用する共通タグ | `map(string)` | `{}` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_network_acl_arn"></a> [network\_acl\_arn](#output\_network\_acl\_arn) | デフォルトNetwork ACLのARN |
+| <a name="output_network_acl_id"></a> [network\_acl\_id](#output\_network\_acl\_id) | デフォルトNetwork ACLのID |
+<!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
