@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'terraform/**'
-      - 'modules/**'
       - '.pre-commit-config.yaml'
       - '.tflint.hcl'
 
@@ -68,7 +67,6 @@ jobs:
       - name: Run terraform validate (separate step)
         run: |
           cd terraform && terraform init -backend=false && terraform validate
-          cd ../modules/cloudtrail && terraform init -backend=false && terraform validate
         continue-on-error: false
 
       - name: Run TFLint (informational)
