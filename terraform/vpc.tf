@@ -128,7 +128,7 @@ module "vpc_endpoints" {
     }
   }
 
-  # インターフェース型エンドポイントの定義
+  # インターフェース型エンドポイントの定義 (Session Manager用)
   interface_endpoints = {
     ssm = {
       name                = "primary-interface-ssm"
@@ -150,13 +150,6 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
     }
-
-    ec2 = {
-      name                = "primary-interface-ec2"
-      service_name        = "com.amazonaws.ap-northeast-1.ec2"
-      private_dns_enabled = true
-      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
-    }
   }
 
   # ゲートウェイ型エンドポイント用のルートテーブル
@@ -167,10 +160,10 @@ module "vpc_endpoints" {
     aws_route_table.rtb_subnet_secondary_1c.id
   ]
 
-  # インターフェース型エンドポイント用のサブネット
+  # インターフェース型エンドポイント用のサブネット (EC2と同じsecondary CIDR)
   subnet_ids = [
-    aws_subnet.primary_1a.id,
-    aws_subnet.primary_1c.id
+    aws_subnet.secondary_1a.id,
+    aws_subnet.secondary_1c.id
   ]
 
   # インターフェース型エンドポイント用のセキュリティグループ

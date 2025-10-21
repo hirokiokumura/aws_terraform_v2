@@ -6,21 +6,14 @@ module "vpc_endpoint_security_group" {
   description = "Security group for VPC Interface Endpoints (SSM, EC2, etc.)"
   vpc_id      = aws_vpc.primary.id
 
-  # Ingressルール - VPC内からのHTTPSアクセスのみ
+  # Ingressルール - Secondary CIDR (EC2配置先) からのHTTPSアクセスのみ
   ingress_with_cidr_blocks = [
     {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = aws_vpc.primary.cidr_block
-      description = "Allow HTTPS from primary VPC CIDR"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
       cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
-      description = "Allow HTTPS from secondary VPC CIDR"
+      description = "Allow HTTPS from secondary VPC CIDR (EC2 subnet)"
     }
   ]
 

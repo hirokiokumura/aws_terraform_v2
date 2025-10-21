@@ -56,15 +56,8 @@ module "security_group" {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = aws_vpc.primary.cidr_block
-      description = "Allow HTTPS to VPC resources (including VPC Endpoints)"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
       cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
-      description = "Allow HTTPS to secondary VPC CIDR resources"
+      description = "Allow HTTPS to VPC Endpoints in secondary CIDR"
     }
   ]
 
