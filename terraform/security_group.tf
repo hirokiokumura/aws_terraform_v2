@@ -42,15 +42,15 @@ module "security_group" {
       from_port   = 53
       to_port     = 53
       protocol    = "tcp"
-      cidr_blocks = "0.0.0.0/0"
-      description = "Allow DNS TCP to internet"
+      cidr_blocks = "169.254.169.253/32"
+      description = "Allow DNS TCP to Amazon DNS server"
     },
     {
       from_port   = 53
       to_port     = 53
       protocol    = "udp"
-      cidr_blocks = "0.0.0.0/0"
-      description = "Allow DNS UDP to internet"
+      cidr_blocks = "169.254.169.253/32"
+      description = "Allow DNS UDP to Amazon DNS server"
     }
   ]
 
