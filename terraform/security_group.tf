@@ -17,21 +17,21 @@ module "security_group" {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = "${var.ip_address}/32"
+      cidr_blocks = ["${var.ip_address}/32"]
       description = "Allow HTTPS from admin IP"
     },
     {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
+      cidr_blocks = [aws_vpc_ipv4_cidr_block_association.secondary.cidr_block]
       description = "Allow HTTPS from secondary VPC CIDR"
     },
     {
       from_port   = 443
       to_port     = 443
       protocol    = "tcp"
-      cidr_blocks = aws_vpc.primary.cidr_block
+      cidr_blocks = [aws_vpc.primary.cidr_block]
       description = "Allow HTTPS from primary VPC CIDR"
     }
   ]
@@ -42,14 +42,14 @@ module "security_group" {
       from_port   = 53
       to_port     = 53
       protocol    = "tcp"
-      cidr_blocks = "169.254.169.253/32"
+      cidr_blocks = ["169.254.169.253/32"]
       description = "Allow DNS TCP to Amazon DNS server"
     },
     {
       from_port   = 53
       to_port     = 53
       protocol    = "udp"
-      cidr_blocks = "169.254.169.253/32"
+      cidr_blocks = ["169.254.169.253/32"]
       description = "Allow DNS UDP to Amazon DNS server"
     }
   ]

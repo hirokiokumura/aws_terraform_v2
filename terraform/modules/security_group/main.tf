@@ -10,10 +10,7 @@ module "security_group" {
   vpc_id      = var.vpc_id
 
   # Ingressルール
-  ingress_with_cidr_blocks = concat(
-    var.ingress_with_cidr_blocks,
-    var.additional_ingress_rules
-  )
+  ingress_with_cidr_blocks = var.ingress_with_cidr_blocks
 
   # Egressルール
   egress_with_cidr_blocks = var.egress_with_cidr_blocks
