@@ -166,10 +166,7 @@ module "vpc_endpoints" {
     aws_subnet.secondary_1c.id
   ]
 
-  # インターフェース型エンドポイント用のセキュリティグループ
-  security_group_ids = [
-    module.vpc_endpoint_security_group.security_group_id
-  ]
+  # セキュリティグループは各エンドポイントで個別に指定 (上記の interface_endpoints 内で設定)
 
   tags = {
     Environment = "production"

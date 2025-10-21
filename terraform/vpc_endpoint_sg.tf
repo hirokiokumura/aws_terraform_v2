@@ -17,8 +17,17 @@ module "vpc_endpoint_security_group" {
     }
   ]
 
-  # Egressルールは不要 (VPCエンドポイントはインバウンドトラフィックのみ処理)
-  egress_with_cidr_blocks     = []
+  # Egressルール - VPCエンドポイントからAWSサービスへの通信
+  egress_with_cidr_blocks = [
+    {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = "0.0.0.0/0"
+      description = "Allow HTTPS to AWS services"
+    }
+  ]
+
   egress_with_prefix_list_ids = []
 
   tags = {
