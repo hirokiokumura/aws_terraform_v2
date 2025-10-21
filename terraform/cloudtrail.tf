@@ -8,7 +8,7 @@ locals {
 }
 
 module "cloudtrail" {
-  source = "../modules/cloudtrail/"
+  source = "./modules/cloudtrail/"
 
   cloudtrail_name   = "${local.account_alias}-cloudtrail"
   bucket_name       = "${local.account_alias}-${local.bucket_name}"
