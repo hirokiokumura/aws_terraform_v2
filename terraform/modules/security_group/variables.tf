@@ -50,6 +50,18 @@ variable "egress_with_prefix_list_ids" {
   default = []
 }
 
+variable "egress_with_source_security_group_id" {
+  description = "セキュリティグループIDを使用したEgressルールのリスト"
+  type = list(object({
+    from_port                = number
+    to_port                  = number
+    protocol                 = string
+    source_security_group_id = string
+    description              = optional(string)
+  }))
+  default = []
+}
+
 variable "tags" {
   description = "リソースに付与するタグ"
   type        = map(string)

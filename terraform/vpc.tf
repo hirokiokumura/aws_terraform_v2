@@ -128,35 +128,28 @@ module "vpc_endpoints" {
     }
   }
 
-  # インターフェース型エンドポイントの定義（必要に応じてコメントを外す）
+  # インターフェース型エンドポイントの定義 (Session Manager用)
   interface_endpoints = {
-    # ssm = {
-    #   name                = "primary-interface-ssm"
-    #   service_name        = "com.amazonaws.ap-northeast-1.ssm"
-    #   private_dns_enabled = true
-    #   # security_group_ids = [aws_security_group.custom_sg.id]  # 個別に指定する場合
-    # }
+    ssm = {
+      name                = "primary-interface-ssm"
+      service_name        = "com.amazonaws.ap-northeast-1.ssm"
+      private_dns_enabled = true
+      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+    }
 
-    # ssmmessages = {
-    #   name                = "primary-interface-ssmmessages"
-    #   service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
-    #   private_dns_enabled = true
-    #   # デフォルトのセキュリティグループを使用（security_group_idsを指定しない）
-    # }
+    ssmmessages = {
+      name                = "primary-interface-ssmmessages"
+      service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
+      private_dns_enabled = true
+      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+    }
 
-    # secretsmanager = {
-    #   name                = "primary-interface-secretsmanager"
-    #   service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
-    #   private_dns_enabled = true
-    #   # security_group_ids = [aws_security_group.secrets_sg.id]  # 個別に指定する場合
-    # }
-
-    # ec2 = {
-    #   name                = "primary-interface-ec2"
-    #   service_name        = "com.amazonaws.ap-northeast-1.ec2"
-    #   private_dns_enabled = true
-    #   # デフォルトのセキュリティグループを使用
-    # }
+    ec2messages = {
+      name                = "primary-interface-ec2messages"
+      service_name        = "com.amazonaws.ap-northeast-1.ec2messages"
+      private_dns_enabled = true
+      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+    }
   }
 
   # ゲートウェイ型エンドポイント用のルートテーブル
@@ -167,16 +160,13 @@ module "vpc_endpoints" {
     aws_route_table.rtb_subnet_secondary_1c.id
   ]
 
-  # インターフェース型エンドポイント用のサブネット（必要に応じてコメントを外す）
-  # subnet_ids = [
-  #   aws_subnet.primary_1a.id,
-  #   aws_subnet.primary_1c.id
-  # ]
+  # インターフェース型エンドポイント用のサブネット (EC2と同じsecondary CIDR)
+  subnet_ids = [
+    aws_subnet.secondary_1a.id,
+    aws_subnet.secondary_1c.id
+  ]
 
-  # インターフェース型エンドポイント用のセキュリティグループ（必要に応じてコメントを外す）
-  # security_group_ids = [
-  #   aws_security_group.this.id
-  # ]
+  # セキュリティグループは各エンドポイントで個別に指定 (上記の interface_endpoints 内で設定)
 
   tags = {
     Environment = "production"

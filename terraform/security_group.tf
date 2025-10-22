@@ -65,6 +65,17 @@ module "security_group" {
     }
   ]
 
+  # Egressルール (セキュリティグループ参照)
+  egress_with_source_security_group_id = [
+    {
+      from_port                = 443
+      to_port                  = 443
+      protocol                 = "tcp"
+      source_security_group_id = module.vpc_endpoint_security_group.security_group_id
+      description              = "Allow HTTPS to VPC Endpoints"
+    }
+  ]
+
   tags = {
     Name        = "internal-https-sg"
     Environment = "production"
