@@ -129,28 +129,30 @@ module "vpc_endpoints" {
   }
 
   # インターフェース型エンドポイントの定義 (Session Manager用)
-  interface_endpoints = {
-    ssm = {
-      name                = "primary-interface-ssm"
-      service_name        = "com.amazonaws.ap-northeast-1.ssm"
-      private_dns_enabled = true
-      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
-    }
+  # 使用する場合は以下のコメントを解除し、vpc_endpoint_sg.tfのモジュールも有効化してください
+  # interface_endpoints = {
+  #   ssm = {
+  #     name                = "primary-interface-ssm"
+  #     service_name        = "com.amazonaws.ap-northeast-1.ssm"
+  #     private_dns_enabled = true
+  #     security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+  #   }
 
-    ssmmessages = {
-      name                = "primary-interface-ssmmessages"
-      service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
-      private_dns_enabled = true
-      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
-    }
+  #   ssmmessages = {
+  #     name                = "primary-interface-ssmmessages"
+  #     service_name        = "com.amazonaws.ap-northeast-1.ssmmessages"
+  #     private_dns_enabled = true
+  #     security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+  #   }
 
-    ec2messages = {
-      name                = "primary-interface-ec2messages"
-      service_name        = "com.amazonaws.ap-northeast-1.ec2messages"
-      private_dns_enabled = true
-      security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
-    }
-  }
+  #   ec2messages = {
+  #     name                = "primary-interface-ec2messages"
+  #     service_name        = "com.amazonaws.ap-northeast-1.ec2messages"
+  #     private_dns_enabled = true
+  #     security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+  #   }
+  # }
+  interface_endpoints = {}
 
   # ゲートウェイ型エンドポイント用のルートテーブル
   gateway_route_table_ids = [
