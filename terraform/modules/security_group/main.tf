@@ -18,5 +18,8 @@ module "security_group" {
   # Prefix Listを使用したEgressルール
   egress_with_prefix_list_ids = var.egress_with_prefix_list_ids
 
+  # セキュリティグループIDを使用したEgressルール
+  egress_with_source_security_group_id = var.egress_with_source_security_group_id
+
   tags = var.tags
 }

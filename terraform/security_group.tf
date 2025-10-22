@@ -51,13 +51,6 @@ module "security_group" {
       protocol    = "udp"
       cidr_blocks = "169.254.169.253/32"
       description = "Allow DNS UDP to Amazon DNS server"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
-      description = "Allow HTTPS to VPC Endpoints in secondary CIDR"
     }
   ]
 
@@ -69,6 +62,17 @@ module "security_group" {
       protocol        = "tcp"
       prefix_list_ids = data.aws_prefix_list.s3.id
       description     = "Allow HTTPS to S3 via VPC Gateway Endpoint"
+    }
+  ]
+
+  # Egressルール (セキュリティグループ参照)
+  egress_with_source_security_group_id = [
+    {
+      from_port                = 443
+      to_port                  = 443
+      protocol                 = "tcp"
+      source_security_group_id = module.vpc_endpoint_security_group.security_group_id
+      description              = "Allow HTTPS to VPC Endpoints"
     }
   ]
 
