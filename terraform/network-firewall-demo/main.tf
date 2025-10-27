@@ -31,15 +31,57 @@ variable "availability_zone" {
   default     = "ap-northeast-1a"
 }
 
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/22"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
+  type        = string
+  default     = "10.0.0.0/24"
+}
+
+variable "firewall_subnet_cidr" {
+  description = "CIDR block for firewall subnet"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for private subnet"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+variable "cloudwatch_log_retention_days" {
+  description = "CloudWatch Logs retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "s3_log_expiration_days" {
+  description = "S3 log expiration period in days"
+  type        = number
+  default     = 90
+}
+
+variable "project_name" {
+  description = "Project name for resource naming and tagging"
+  type        = string
+  default     = "network-firewall-demo"
+}
+
 #####################################
 # VPC
 #####################################
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags                 = { Name = "nfw-demo-vpc" }
+  tags                 = { Name = "${var.project_name}-vpc" }
 }
 
 #####################################
@@ -48,31 +90,31 @@ resource "aws_vpc" "main" {
 
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.0.0/24"
+  cidr_block              = var.public_subnet_cidr
   availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
   tags = {
-    Name = "public-subnet"
+    Name = "${var.project_name}-public-subnet"
     AZ   = var.availability_zone
   }
 }
 
 resource "aws_subnet" "firewall" {
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
+  cidr_block        = var.firewall_subnet_cidr
   availability_zone = var.availability_zone
   tags = {
-    Name = "firewall-subnet"
+    Name = "${var.project_name}-firewall-subnet"
     AZ   = var.availability_zone
   }
 }
 
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
+  cidr_block        = var.private_subnet_cidr
   availability_zone = var.availability_zone
   tags = {
-    Name = "private-subnet"
+    Name = "${var.project_name}-private-subnet"
     AZ   = var.availability_zone
   }
 }
@@ -216,7 +258,9 @@ module "vpc_endpoint_security_group" {
 #####################################
 
 resource "aws_iam_role" "ssm_role" {
-  name = "nfw-demo-ec2-ssm-role"
+  # 名前を動的生成してアカウント間での衝突を防止
+  # アカウントIDとリージョンを含めることで一意性を確保
+  name = "nfw-demo-ec2-ssm-role-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -226,6 +270,10 @@ resource "aws_iam_role" "ssm_role" {
       Principal = { Service = "ec2.amazonaws.com" }
     }]
   })
+
+  tags = {
+    Name = "nfw-demo-ec2-ssm-role"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ssm_core" {
@@ -234,8 +282,13 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
 }
 
 resource "aws_iam_instance_profile" "ssm_profile" {
-  name = "nfw-demo-ec2-ssm-profile"
+  # インスタンスプロファイル名も動的生成
+  name = "nfw-demo-ec2-ssm-profile-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
   role = aws_iam_role.ssm_role.name
+
+  tags = {
+    Name = "nfw-demo-ec2-ssm-profile"
+  }
 }
 
 #####################################
@@ -243,7 +296,8 @@ resource "aws_iam_instance_profile" "ssm_profile" {
 #####################################
 
 resource "aws_instance" "test" {
-  ami                         = "ami-0c3fd0f5d33134a76" # Amazon Linux 2
+  # 最新のAmazon Linux 2023 AMIを動的に取得
+  ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.private.id
   iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name
@@ -287,6 +341,7 @@ locals {
   # この環境では1つのAZ (変数で指定) のみを使用
   # 明示的にAZ名を指定してエンドポイントIDを取得することで、
   # どのAZのエンドポイントを使用しているか明確にする
+  # try()でnullを許容し、ルート作成時に検証
   firewall_endpoint_id = try(
     aws_networkfirewall_firewall.main.firewall_status[0].sync_states[var.availability_zone].attachment[0].endpoint_id,
     null
@@ -461,6 +516,27 @@ resource "aws_networkfirewall_firewall_policy" "main" {
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+# 最新のAmazon Linux 2023 AMIを自動取得
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+}
+
 #####################################
 # S3 Bucket for Network Firewall Logs
 #####################################
@@ -491,14 +567,14 @@ module "s3_firewall_logs" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 
-  # ライフサイクルルール (ログ保持期間90日)
+  # ライフサイクルルール (ログ保持期間: 変数で設定可能、デフォルト90日)
   lifecycle_rule = [
     {
       id      = "log-expiration"
       enabled = true
 
       expiration = {
-        days = 90
+        days = var.s3_log_expiration_days
       }
 
       noncurrent_version_expiration = {
@@ -508,7 +584,7 @@ module "s3_firewall_logs" {
   ]
 
   tags = {
-    Name        = "network-firewall-logs"
+    Name        = "${var.project_name}-logs"
     Environment = "demo"
     Purpose     = "network-firewall-logging"
   }
@@ -640,12 +716,12 @@ resource "aws_cloudwatch_log_group" "network_firewall_alert" {
   name = "/aws/network-firewall/alert"
 
   # retention_in_days: ログ保持期間
-  # メトリクス抽出が目的のため短期保持（7日）
+  # メトリクス抽出が目的のため短期保持（デフォルト7日）
   # 長期保管はS3で行うため、CloudWatch Logsはコスト最適化
-  retention_in_days = 7
+  retention_in_days = var.cloudwatch_log_retention_days
 
   tags = {
-    Name        = "network-firewall-alert-logs"
+    Name        = "${var.project_name}-alert-logs"
     Environment = "demo"
   }
 }
@@ -804,7 +880,17 @@ resource "aws_route" "private_to_firewall" {
   destination_cidr_block = "0.0.0.0/0"
   vpc_endpoint_id        = local.firewall_endpoint_id
 
+  # Network Firewallのエンドポイント作成完了を明示的に待機
   depends_on = [aws_networkfirewall_firewall.main]
+
+  # Firewall Endpoint IDがnullでないことを検証
+  # Firewallのデプロイが完了していない場合はエラーで停止
+  lifecycle {
+    precondition {
+      condition     = local.firewall_endpoint_id != null
+      error_message = "Network Firewall endpoint ID is null. Firewall deployment may have failed or is not yet complete in availability zone ${var.availability_zone}."
+    }
+  }
 }
 
 # IGW Edge Association (アウトバウンド通信の戻りトラフィック用)
@@ -832,7 +918,16 @@ resource "aws_route" "igw_to_firewall" {
   destination_cidr_block = aws_subnet.private.cidr_block
   vpc_endpoint_id        = local.firewall_endpoint_id
 
+  # Network Firewallのエンドポイント作成完了を明示的に待機
   depends_on = [aws_networkfirewall_firewall.main]
+
+  # Firewall Endpoint IDがnullでないことを検証
+  lifecycle {
+    precondition {
+      condition     = local.firewall_endpoint_id != null
+      error_message = "Network Firewall endpoint ID is null. Firewall deployment may have failed or is not yet complete in availability zone ${var.availability_zone}."
+    }
+  }
 }
 
 #####################################
