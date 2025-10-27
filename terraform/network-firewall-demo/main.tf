@@ -129,33 +129,66 @@ resource "aws_route_table_association" "private" {
 # 0.0.0.0/0 -> Firewall Endpoint (added below after firewall resource)
 
 #####################################
-# Security Group
+# Security Groups
 #####################################
 
-resource "aws_security_group" "ec2" {
+# EC2用セキュリティグループ
+module "ec2_security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
   name        = "nfw-demo-ec2-sg"
+  description = "Security group for EC2 instance - Network Firewall demo"
   vpc_id      = aws_vpc.main.id
-  description = "Allow HTTPS and HTTP for Network Firewall domain rule test"
 
-  # Allow all outbound traffic (Network Firewall will filter)
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  # Egress: すべて許可 (Network Firewallでフィルタリング)
+  egress_with_cidr_blocks = [
+    {
+      rule        = "all-all"
+      cidr_blocks = "0.0.0.0/0"
+      description = "Allow all outbound (filtered by Network Firewall)"
+    }
+  ]
+
+  # Ingress: VPC内から許可 (SSM用)
+  ingress_with_cidr_blocks = [
+    {
+      rule        = "https-443-tcp"
+      cidr_blocks = aws_vpc.main.cidr_block
+      description = "Allow HTTPS from VPC for SSM"
+    }
+  ]
+
+  tags = {
+    Name        = "ec2-sg"
+    Environment = "demo"
   }
+}
 
-  # Allow inbound from VPC (for SSM)
-  ingress {
-    description = "Allow all from VPC"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["10.0.0.0/16"]
+# VPCエンドポイント用セキュリティグループ
+module "vpc_endpoint_security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = "nfw-demo-vpc-endpoint-sg"
+  description = "Security group for VPC Endpoints (SSM)"
+  vpc_id      = aws_vpc.main.id
+
+  # Ingress: EC2からのHTTPS接続を許可
+  computed_ingress_with_source_security_group_id = [
+    {
+      rule                     = "https-443-tcp"
+      source_security_group_id = module.ec2_security_group.security_group_id
+      description              = "Allow HTTPS from EC2"
+    }
+  ]
+
+  number_of_computed_ingress_with_source_security_group_id = 1
+
+  tags = {
+    Name        = "vpc-endpoint-sg"
+    Environment = "demo"
   }
-
-  tags = { Name = "ec2-sg" }
 }
 
 #####################################
@@ -194,10 +227,27 @@ resource "aws_instance" "test" {
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.private.id
   iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name
-  security_groups             = [aws_security_group.ec2.id]
+  vpc_security_group_ids      = [module.ec2_security_group.security_group_id]
   associate_public_ip_address = false
+  monitoring                  = true
 
-  tags = { Name = "firewall-test-ec2" }
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required" # IMDSv2を強制
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
+
+  root_block_device {
+    encrypted   = true
+    volume_type = "gp3"
+    volume_size = 8
+  }
+
+  tags = {
+    Name        = "firewall-test-ec2"
+    Environment = "demo"
+  }
 }
 
 #####################################
@@ -218,8 +268,13 @@ resource "aws_vpc_endpoint" "ssm" {
   service_name        = each.value
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [aws_subnet.private.id]
-  security_group_ids  = [aws_security_group.ec2.id]
+  security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
   private_dns_enabled = true
+
+  tags = {
+    Name        = "ssm-${each.key}-endpoint"
+    Environment = "demo"
+  }
 }
 
 #####################################
@@ -290,45 +345,64 @@ resource "aws_networkfirewall_firewall_policy" "main" {
 }
 
 #####################################
+# Data Sources
+#####################################
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+#####################################
 # S3 Bucket for Network Firewall Logs
 #####################################
 
-resource "aws_s3_bucket" "firewall_logs" {
+module "s3_firewall_logs" {
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
+
   bucket = "nfw-logs-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
 
-  tags = { Name = "network-firewall-logs" }
-}
-
-resource "aws_s3_bucket_versioning" "firewall_logs" {
-  bucket = aws_s3_bucket.firewall_logs.id
-
-  versioning_configuration {
-    status = "Enabled"
+  # バージョニング
+  versioning = {
+    enabled = true
   }
-}
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "firewall_logs" {
-  bucket = aws_s3_bucket.firewall_logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+  # 暗号化
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm = "AES256"
+      }
     }
   }
-}
 
-resource "aws_s3_bucket_public_access_block" "firewall_logs" {
-  bucket = aws_s3_bucket.firewall_logs.id
-
+  # パブリックアクセスブロック
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
-}
 
-# Data sources for S3 bucket naming
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
+  # ライフサイクルルール (ログ保持期間90日)
+  lifecycle_rule = [
+    {
+      id      = "log-expiration"
+      enabled = true
+
+      expiration = {
+        days = 90
+      }
+
+      noncurrent_version_expiration = {
+        days = 30
+      }
+    }
+  ]
+
+  tags = {
+    Name        = "network-firewall-logs"
+    Environment = "demo"
+    Purpose     = "network-firewall-logging"
+  }
+}
 
 #####################################
 # Network Firewall
@@ -357,7 +431,7 @@ resource "aws_networkfirewall_logging_configuration" "main" {
     # ALERTログ: ルールにマッチしたトラフィックの詳細
     log_destination_config {
       log_destination = {
-        bucketName = aws_s3_bucket.firewall_logs.id
+        bucketName = module.s3_firewall_logs.s3_bucket_id
         prefix     = "alert"
       }
       log_destination_type = "S3"
@@ -367,7 +441,7 @@ resource "aws_networkfirewall_logging_configuration" "main" {
     # FLOWログ: すべてのトラフィックフロー情報
     log_destination_config {
       log_destination = {
-        bucketName = aws_s3_bucket.firewall_logs.id
+        bucketName = module.s3_firewall_logs.s3_bucket_id
         prefix     = "flow"
       }
       log_destination_type = "S3"
@@ -381,29 +455,44 @@ resource "aws_networkfirewall_logging_configuration" "main" {
 #####################################
 
 # Athena結果格納用S3バケット
-resource "aws_s3_bucket" "athena_results" {
+module "s3_athena_results" {
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
+
   bucket = "athena-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
 
-  tags = { Name = "athena-query-results" }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "athena_results" {
-  bucket = aws_s3_bucket.athena_results.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+  # 暗号化
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm = "AES256"
+      }
     }
   }
-}
 
-resource "aws_s3_bucket_public_access_block" "athena_results" {
-  bucket = aws_s3_bucket.athena_results.id
-
+  # パブリックアクセスブロック
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+
+  # ライフサイクルルール (クエリ結果は30日で削除)
+  lifecycle_rule = [
+    {
+      id      = "query-results-expiration"
+      enabled = true
+
+      expiration = {
+        days = 30
+      }
+    }
+  ]
+
+  tags = {
+    Name        = "athena-query-results"
+    Environment = "demo"
+    Purpose     = "athena-query-results"
+  }
 }
 
 # Athenaデータベース
@@ -421,7 +510,7 @@ resource "aws_athena_workgroup" "firewall_analysis" {
     publish_cloudwatch_metrics_enabled = true
 
     result_configuration {
-      output_location = "s3://${aws_s3_bucket.athena_results.id}/query-results/"
+      output_location = "s3://${module.s3_athena_results.s3_bucket_id}/query-results/"
 
       encryption_configuration {
         encryption_option = "SSE_S3"
@@ -470,7 +559,7 @@ output "ec2_instance_id" {
 
 output "s3_log_bucket" {
   description = "S3 bucket for Network Firewall logs"
-  value       = aws_s3_bucket.firewall_logs.id
+  value       = module.s3_firewall_logs.s3_bucket_id
 }
 
 output "athena_database" {
@@ -504,10 +593,10 @@ output "test_commands" {
     ### 2. S3ログの確認 ###
 
     # ALERTログの確認
-    aws s3 ls s3://${aws_s3_bucket.firewall_logs.id}/alert/ --recursive
+    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/alert/ --recursive
 
     # FLOWログの確認
-    aws s3 ls s3://${aws_s3_bucket.firewall_logs.id}/flow/ --recursive
+    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/flow/ --recursive
 
 
     ### 3. Athenaでログ分析 ###
@@ -545,7 +634,7 @@ output "athena_ddl_alert" {
       >
     )
     ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
-    LOCATION 's3://${aws_s3_bucket.firewall_logs.id}/alert/'
+    LOCATION 's3://${module.s3_firewall_logs.s3_bucket_id}/alert/'
   EOT
 }
 
@@ -577,7 +666,7 @@ output "athena_ddl_flow" {
       >
     )
     ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
-    LOCATION 's3://${aws_s3_bucket.firewall_logs.id}/flow/'
+    LOCATION 's3://${module.s3_firewall_logs.s3_bucket_id}/flow/'
   EOT
 }
 
