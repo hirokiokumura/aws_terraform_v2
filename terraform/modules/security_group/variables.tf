@@ -26,6 +26,18 @@ variable "ingress_with_cidr_blocks" {
   default = []
 }
 
+variable "ingress_with_source_security_group_id" {
+  description = "セキュリティグループIDを使用したIngressルールのリスト"
+  type = list(object({
+    from_port                = number
+    to_port                  = number
+    protocol                 = string
+    source_security_group_id = string
+    description              = optional(string)
+  }))
+  default = []
+}
+
 variable "egress_with_cidr_blocks" {
   description = "CIDR ブロックを使用したEgressルールのリスト"
   type = list(object({
