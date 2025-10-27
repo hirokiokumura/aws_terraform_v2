@@ -591,6 +591,78 @@ module "s3_firewall_logs" {
 }
 
 #####################################
+# S3 Bucket Policy for Network Firewall Logs
+#####################################
+# Network Firewallがログを書き込むために必要なバケットポリシーを明示的に定義
+# aws_iam_policy_documentを使用することで、型安全性と可読性を向上
+
+# ポリシードキュメントの定義
+data "aws_iam_policy_document" "firewall_logs" {
+  # Network Firewallサービスがログを書き込むことを許可
+  statement {
+    sid    = "AWSNetworkFirewallLogging"
+    effect = "Allow"
+
+    # Network Firewallサービスプリンシパル
+    principals {
+      type        = "Service"
+      identifiers = ["network-firewall.amazonaws.com"]
+    }
+
+    # ログファイルの書き込み権限
+    actions = [
+      "s3:PutObject"
+    ]
+
+    # AWSLogs配下のすべてのオブジェクトへの書き込みを許可
+    resources = [
+      "${module.s3_firewall_logs.s3_bucket_arn}/AWSLogs/*"
+    ]
+
+    # セキュリティ強化: 同一アカウントからのリクエストのみ許可
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+
+  # バケットACL取得権限（Network Firewallがバケットの存在を確認するために必要）
+  statement {
+    sid    = "AWSNetworkFirewallBucketACL"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["network-firewall.amazonaws.com"]
+    }
+
+    actions = [
+      "s3:GetBucketAcl"
+    ]
+
+    resources = [
+      module.s3_firewall_logs.s3_bucket_arn
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+# バケットポリシーの適用
+resource "aws_s3_bucket_policy" "firewall_logs" {
+  bucket = module.s3_firewall_logs.s3_bucket_id
+  policy = data.aws_iam_policy_document.firewall_logs.json
+
+  # S3バケット作成完了後にポリシーを適用
+  depends_on = [module.s3_firewall_logs]
+}
+
+#####################################
 # Network Firewall
 #####################################
 # Network Firewall: VPC内にデプロイされる実際のファイアウォールインスタンス
