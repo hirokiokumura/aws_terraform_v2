@@ -66,17 +66,15 @@ module "security_group_product" {
   ]
 
   # Egressルール (セキュリティグループ参照)
-  # VPCエンドポイントを使用する場合は、vpc_endpoint_sg.tfと併せて以下のコメントを解除してください
-  # egress_with_source_security_group_id = [
-  #   {
-  #     from_port                = 443
-  #     to_port                  = 443
-  #     protocol                 = "tcp"
-  #     source_security_group_id = module.vpc_endpoint_security_group.security_group_id
-  #     description              = "Allow HTTPS to VPC Endpoints"
-  #   }
-  # ]
-  egress_with_source_security_group_id = []
+  egress_with_source_security_group_id = [
+    {
+      from_port                = 443
+      to_port                  = 443
+      protocol                 = "tcp"
+      source_security_group_id = module.security_group_vpc_endpoint.security_group_id
+      description              = "Allow HTTPS to VPC Endpoints"
+    }
+  ]
 
   tags = {
     Name        = "internal-https-sg"
