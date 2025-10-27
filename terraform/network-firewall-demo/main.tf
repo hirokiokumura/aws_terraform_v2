@@ -553,11 +553,26 @@ resource "aws_route" "private_to_firewall" {
   depends_on = [aws_networkfirewall_firewall.main]
 }
 
-# IGW Edge Association (インターネットからの戻りトラフィック用)
-# インターネット → IGW → Firewall → Private Subnet の経路を確立
-# 注意: IGWにEdge Associationを設定することで、
-# インターネットからの戻りパケットをPrivate Subnetに直接送らず、
-# 必ずFirewallを経由させることができます
+# IGW Edge Association (アウトバウンド通信の戻りトラフィック用)
+#
+# このルートは「インバウンド」通信用ではなく、「アウトバウンド通信の戻りパケット」用です。
+#
+# シナリオ: EC2 (10.0.2.5) が example.com にHTTPSリクエストを送信
+#
+# 往路 (EC2 → インターネット):
+#   EC2 (10.0.2.5) → Firewall → IGW → example.com
+#
+# 復路 (インターネット → EC2):
+#   example.com → IGW → ??? → EC2 (10.0.2.5)
+#
+#   問題: IGWは宛先10.0.2.5へのルートを知らない
+#
+#   解決: このルートがIGWに「10.0.2.0/24宛のパケットはFirewallへ送れ」と指示
+#   example.com → IGW → Firewall → EC2 (10.0.2.5)
+#
+# 注意: EC2はプライベートIPのみでパブリックIPを持たないため、
+# インターネットからの新規インバウンド接続は受け付けません。
+# これは確立済み接続(ESTABLISHED)の戻りパケット用です。
 resource "aws_route" "igw_to_firewall" {
   route_table_id         = aws_route_table.public.id
   destination_cidr_block = aws_subnet.private.cidr_block
