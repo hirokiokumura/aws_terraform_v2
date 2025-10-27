@@ -86,10 +86,15 @@ resource "aws_internet_gateway" "main" {
 # Route Tables
 #####################################
 
-# Public Subnet Route Table (IGW → Firewall Endpoint)
+# Public Subnet Route Table (IGW用)
+# Network Firewallからの戻りトラフィック用のルートは後から追加
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "public-rtb" }
+
+  lifecycle {
+    ignore_changes = [route]
+  }
 }
 
 resource "aws_route_table_association" "public" {
@@ -118,15 +123,18 @@ resource "aws_route_table_association" "firewall" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "private-rtb" }
+
+  # Network Firewallが作成されるまでルートを追加しない
+  # ルートは aws_route.private_to_firewall で後から追加される
+  lifecycle {
+    ignore_changes = [route]
+  }
 }
 
 resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private.id
   route_table_id = aws_route_table.private.id
 }
-
-# This route will be added after firewall endpoint is created
-# 0.0.0.0/0 -> Firewall Endpoint (added below after firewall resource)
 
 #####################################
 # Security Groups
@@ -255,11 +263,21 @@ resource "aws_instance" "test" {
 #####################################
 
 locals {
+  # SSM VPCエンドポイント用
   endpoints = {
     ssm         = "com.amazonaws.ap-northeast-1.ssm"
     ssmmessages = "com.amazonaws.ap-northeast-1.ssmmessages"
     ec2messages = "com.amazonaws.ap-northeast-1.ec2messages"
   }
+
+  # Network FirewallのエンドポイントIDを取得
+  # Network Firewallは各AZにエンドポイントを作成する
+  # この環境では1つのAZ (ap-northeast-1a) のみを使用しているため、
+  # sync_statesから最初のエンドポイントIDを取得
+  firewall_endpoint_id = try(
+    values(aws_networkfirewall_firewall.main.firewall_status[0].sync_states)[0].attachment[0].endpoint_id,
+    null
+  )
 }
 
 resource "aws_vpc_endpoint" "ssm" {
@@ -525,20 +543,25 @@ resource "aws_athena_workgroup" "firewall_analysis" {
 # Route: Private Subnet → Firewall Endpoint
 #####################################
 
-# Firewall Endpointが作成された後にルートを追加
+# Private Subnet → Firewall Endpoint へのルート
+# EC2からのすべてのインターネット向けトラフィックをFirewallに送る
 resource "aws_route" "private_to_firewall" {
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  vpc_endpoint_id        = one([for endpoint in aws_networkfirewall_firewall.main.firewall_status[0].sync_states : endpoint.attachment[0].endpoint_id])
+  vpc_endpoint_id        = local.firewall_endpoint_id
 
   depends_on = [aws_networkfirewall_firewall.main]
 }
 
-# IGW Route Table: インターネットからの戻りトラフィックをFirewallに送る
+# IGW Edge Association (インターネットからの戻りトラフィック用)
+# インターネット → IGW → Firewall → Private Subnet の経路を確立
+# 注意: IGWにEdge Associationを設定することで、
+# インターネットからの戻りパケットをPrivate Subnetに直接送らず、
+# 必ずFirewallを経由させることができます
 resource "aws_route" "igw_to_firewall" {
   route_table_id         = aws_route_table.public.id
   destination_cidr_block = aws_subnet.private.cidr_block
-  vpc_endpoint_id        = one([for endpoint in aws_networkfirewall_firewall.main.firewall_status[0].sync_states : endpoint.attachment[0].endpoint_id])
+  vpc_endpoint_id        = local.firewall_endpoint_id
 
   depends_on = [aws_networkfirewall_firewall.main]
 }
@@ -549,7 +572,7 @@ resource "aws_route" "igw_to_firewall" {
 
 output "firewall_endpoint_id" {
   description = "Network Firewall Endpoint ID"
-  value       = one([for endpoint in aws_networkfirewall_firewall.main.firewall_status[0].sync_states : endpoint.attachment[0].endpoint_id])
+  value       = local.firewall_endpoint_id
 }
 
 output "ec2_instance_id" {
