@@ -663,9 +663,9 @@ resource "aws_cloudwatch_log_metric_filter" "blocked_domains" {
   log_group_name = aws_cloudwatch_log_group.network_firewall_alert.name
 
   # pattern: ログからメトリクスを抽出するパターン
-  # "[json_log]" = すべてのJSONログにマッチ
-  # より厳密なフィルタ例: "{ $.event.alert.action = \"blocked\" }"
-  pattern = "[json_log]"
+  # JSONフィールドベースのフィルタリングで、ブロックされたログのみを抽出
+  # $.event.alert.action = "blocked" にマッチするログのみカウント
+  pattern = "{ $.event.alert.action = \"blocked\" }"
 
   # metric_transformation: 抽出したログをメトリクスに変換
   metric_transformation {
@@ -940,7 +940,7 @@ output "athena_ddl_alert" {
     TBLPROPERTIES (
       'projection.enabled' = 'true',
       'projection.year.type' = 'integer',
-      'projection.year.range' = '2024,2030',
+      'projection.year.range' = '2020,2035',
       'projection.month.type' = 'integer',
       'projection.month.range' = '01,12',
       'projection.month.digits' = '2',
@@ -999,7 +999,7 @@ output "athena_ddl_flow" {
     TBLPROPERTIES (
       'projection.enabled' = 'true',
       'projection.year.type' = 'integer',
-      'projection.year.range' = '2024,2030',
+      'projection.year.range' = '2020,2035',
       'projection.month.type' = 'integer',
       'projection.month.range' = '01,12',
       'projection.month.digits' = '2',
@@ -1014,7 +1014,7 @@ output "athena_ddl_flow" {
 
     -- パーティションプロジェクション使用時の利点:
     -- 1. MSCK REPAIR TABLE不要（自動でパーティション認識）
-    -- 2. クエリ時に WHERE year='2024' AND month='01' AND day='15' などでフィルタ可能
+    -- 2. クエリ時に WHERE year='2025' AND month='01' AND day='15' などでフィルタ可能
     -- 3. スキャンデータ量削減 = コスト削減 & 高速化
   EOT
 }
