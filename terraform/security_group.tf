@@ -4,36 +4,36 @@ data "aws_prefix_list" "s3" {
 }
 
 # セキュリティグループモジュール
-module "security_group" {
+module "security_group_product" {
   source = "./modules/security_group"
 
-  name        = "internal-https-sg"
+  name        = "product-sg"
   description = "Security group for internal HTTPS access and DNS"
   vpc_id      = aws_vpc.primary.id
 
   # Ingressルール
   ingress_with_cidr_blocks = [
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = "${var.ip_address}/32"
-      description = "Allow HTTPS from admin IP"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
-      description = "Allow HTTPS from secondary VPC CIDR"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = aws_vpc.primary.cidr_block
-      description = "Allow HTTPS from primary VPC CIDR"
-    }
+    # {
+    #   from_port   = 443
+    #   to_port     = 443
+    #   protocol    = "tcp"
+    #   cidr_blocks = "${var.ip_address}/32"
+    #   description = "Allow HTTPS from admin IP"
+    # },
+    # {
+    #   from_port   = 443
+    #   to_port     = 443
+    #   protocol    = "tcp"
+    #   cidr_blocks = aws_vpc_ipv4_cidr_block_association.secondary.cidr_block
+    #   description = "Allow HTTPS from secondary VPC CIDR"
+    # },
+    # {
+    #   from_port   = 443
+    #   to_port     = 443
+    #   protocol    = "tcp"
+    #   cidr_blocks = aws_vpc.primary.cidr_block
+    #   description = "Allow HTTPS from primary VPC CIDR"
+    # }
   ]
 
   # Egressルール (CIDR ブロック)
@@ -83,4 +83,13 @@ module "security_group" {
     Environment = "production"
     ManagedBy   = "Terraform"
   }
+}
+
+
+module "security_group_vpc_endpoint" {
+  source = "./modules/security_group"
+
+  name        = "vpc-endpoint-sg"
+  description = "Security group for VPC endpoints"
+  vpc_id      = aws_vpc.primary.id
 }
