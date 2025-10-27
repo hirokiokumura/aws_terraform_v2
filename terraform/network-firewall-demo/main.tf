@@ -86,15 +86,11 @@ resource "aws_internet_gateway" "main" {
 # Route Tables
 #####################################
 
-# Public Subnet Route Table (IGW用)
-# Network Firewallからの戻りトラフィック用のルートは後から追加
+# Public Subnet Route Table
+# すべてのルートはaws_routeリソースで個別管理
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "public-rtb" }
-
-  lifecycle {
-    ignore_changes = [route]
-  }
 }
 
 resource "aws_route_table_association" "public" {
@@ -102,12 +98,14 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Firewall Subnet Route Table (Firewall → IGW)
+# Firewall Subnet Route Table
+# すべてのルートはaws_routeリソースで個別管理
 resource "aws_route_table" "firewall" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "firewall-rtb" }
 }
 
+# Firewall Subnet → IGW へのルート
 resource "aws_route" "firewall_to_igw" {
   route_table_id         = aws_route_table.firewall.id
   destination_cidr_block = "0.0.0.0/0"
@@ -119,16 +117,11 @@ resource "aws_route_table_association" "firewall" {
   route_table_id = aws_route_table.firewall.id
 }
 
-# Private Subnet Route Table (Private → Firewall Endpoint)
+# Private Subnet Route Table
+# すべてのルートはaws_routeリソースで個別管理
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "private-rtb" }
-
-  # Network Firewallが作成されるまでルートを追加しない
-  # ルートは aws_route.private_to_firewall で後から追加される
-  lifecycle {
-    ignore_changes = [route]
-  }
 }
 
 resource "aws_route_table_association" "private" {
