@@ -20,7 +20,8 @@
 |------|--------|---------|
 | <a name="module_cloudtrail"></a> [cloudtrail](#module\_cloudtrail) | ./modules/cloudtrail/ | n/a |
 | <a name="module_network_acl"></a> [network\_acl](#module\_network\_acl) | ./modules/network_acl | n/a |
-| <a name="module_security_group"></a> [security\_group](#module\_security\_group) | ./modules/security_group | n/a |
+| <a name="module_security_group_product"></a> [security\_group\_product](#module\_security\_group\_product) | ./modules/security_group | n/a |
+| <a name="module_security_group_vpc_endpoint"></a> [security\_group\_vpc\_endpoint](#module\_security\_group\_vpc\_endpoint) | ./modules/security_group | n/a |
 | <a name="module_vpc_endpoints"></a> [vpc\_endpoints](#module\_vpc\_endpoints) | ./modules/vpc_endpoint | n/a |
 
 ## Resources
