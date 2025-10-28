@@ -81,8 +81,11 @@ terraform apply
 
 ### 1. ドメインルールのテスト
 
+**重要**: SSM接続はNAT Gateway経由でインターネット経由のSSMエンドポイントに接続します。VPCエンドポイントは使用していません（コスト削減のため）。
+
 ```bash
 # 1. terraform outputから取得したインスタンスIDでSSM接続
+# 注意: NAT GatewayとNetwork Firewallのデプロイ完了後に接続可能になります
 aws ssm start-session --target <EC2_INSTANCE_ID> --region ap-northeast-1
 
 # 2. 許可されるドメインをテスト (成功するはず)
@@ -91,6 +94,21 @@ curl -I https://aws.amazon.com
 
 # 3. 拒否されるドメインをテスト (タイムアウトするはず)
 curl -I https://google.com
+```
+
+**SSM接続の通信経路:**
+```
+EC2 (Private Subnet)
+  ↓ 0.0.0.0/0 → Firewall Endpoint
+Network Firewall
+  ↓ ドメインフィルタリング (amazonaws.comは許可)
+  ↓ 0.0.0.0/0 → NAT Gateway
+NAT Gateway
+  ↓ 送信元NAT変換
+  ↓ 0.0.0.0/0 → IGW
+Internet
+  ↓
+SSM Public Endpoint (ssm.ap-northeast-1.amazonaws.com)
 ```
 
 ### 2. CloudWatch Logsでアラート確認

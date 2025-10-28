@@ -257,32 +257,6 @@ module "ec2_security_group" {
   }
 }
 
-# VPCエンドポイント用セキュリティグループ
-module "vpc_endpoint_security_group" {
-  source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 5.0"
-
-  name        = "nfw-demo-vpc-endpoint-sg"
-  description = "Security group for VPC Endpoints (SSM)"
-  vpc_id      = aws_vpc.main.id
-
-  # Ingress: EC2からのHTTPS接続を許可
-  computed_ingress_with_source_security_group_id = [
-    {
-      rule                     = "https-443-tcp"
-      source_security_group_id = module.ec2_security_group.security_group_id
-      description              = "Allow HTTPS from EC2"
-    }
-  ]
-
-  number_of_computed_ingress_with_source_security_group_id = 1
-
-  tags = {
-    Name        = "vpc-endpoint-sg"
-    Environment = "demo"
-  }
-}
-
 #####################################
 # IAM for SSM
 #####################################
@@ -356,17 +330,10 @@ resource "aws_instance" "test" {
 }
 
 #####################################
-# VPC Endpoints for SSM
+# Network Firewall Locals
 #####################################
 
 locals {
-  # SSM VPCエンドポイント用
-  endpoints = {
-    ssm         = "com.amazonaws.ap-northeast-1.ssm"
-    ssmmessages = "com.amazonaws.ap-northeast-1.ssmmessages"
-    ec2messages = "com.amazonaws.ap-northeast-1.ec2messages"
-  }
-
   # Network FirewallのエンドポイントIDを取得
   # Network Firewallは各AZにエンドポイントを作成する
   # この環境では1つのAZ (変数で指定) のみを使用
@@ -377,21 +344,6 @@ locals {
     aws_networkfirewall_firewall.main.firewall_status[0].sync_states[var.availability_zone].attachment[0].endpoint_id,
     null
   )
-}
-
-resource "aws_vpc_endpoint" "ssm" {
-  for_each            = local.endpoints
-  vpc_id              = aws_vpc.main.id
-  service_name        = each.value
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private.id]
-  security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
-  private_dns_enabled = true
-
-  tags = {
-    Name        = "ssm-${each.key}-endpoint"
-    Environment = "demo"
-  }
 }
 
 #####################################
