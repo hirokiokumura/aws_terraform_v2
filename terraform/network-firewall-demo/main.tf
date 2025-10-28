@@ -902,6 +902,12 @@ module "s3_athena_results" {
 resource "aws_glue_catalog_database" "firewall_logs" {
   name        = "network_firewall_logs"
   description = "Database for Network Firewall logs analysis"
+
+  # GitHub ActionsのIAMロールがglue:GetTags権限を持たない場合に
+  # Terraform refreshエラーを回避するため、タグ変更を無視
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 # Athenaワークグループ
