@@ -25,11 +25,42 @@ Internet Gateway
 
 ## 🚀 デプロイ手順
 
+### 方法1: GitHub Actions（自動デプロイ）
+
+このリポジトリには専用のGitHub Actionsワークフローが設定されています。
+
+**トリガー条件:**
+
+- `main`ブランチへのpush時に`terraform/network-firewall-demo/`配下の変更があった場合
+- Pull Request作成時（Planのみ実行、コメントに結果を表示）
+- 手動実行（workflow_dispatch）
+
+**ワークフローファイル:** `.github/workflows/terraform-network-firewall.yml`
+
+**mainブランチへのマージ時の動作:**
+
+1. Terraform Format Check
+2. Terraform Init
+3. Terraform Validate
+4. Terraform Apply（自動承認）
+5. Outputs表示
+
+### 方法2: ローカルでのデプロイ
+
 ```bash
 cd terraform/network-firewall-demo
 terraform init
 terraform apply
 ```
+
+**必要な権限:**
+
+- VPC、Subnet、IGW、Route Table作成権限
+- Network Firewall作成権限
+- S3バケット作成権限
+- IAMロール作成権限
+- CloudWatch Logs作成権限
+- Athena、Glue作成権限
 
 ## 🧪 検証手順
 
