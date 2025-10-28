@@ -148,6 +148,8 @@ resource "aws_route_table" "igw" {
 # IGW → Firewall Endpoint へのルート（Private Subnet宛て）
 # インターネットからの戻りトラフィック（レスポンス）をFirewall経由でPrivate Subnetに転送
 resource "aws_route" "igw_to_firewall" {
+  count = local.firewall_endpoint_id != null ? 1 : 0
+
   route_table_id         = aws_route_table.igw.id
   destination_cidr_block = var.private_subnet_cidr
   vpc_endpoint_id        = local.firewall_endpoint_id
@@ -157,6 +159,8 @@ resource "aws_route" "igw_to_firewall" {
 
 # IGWルートテーブルをIGWにアタッチ
 resource "aws_route_table_association" "igw" {
+  count = local.firewall_endpoint_id != null ? 1 : 0
+
   gateway_id     = aws_internet_gateway.main.id
   route_table_id = aws_route_table.igw.id
 }
@@ -559,16 +563,14 @@ resource "aws_networkfirewall_firewall_policy" "main" {
     # 用途: ドメインフィルタリング、IPS/IDS、プロトコル検査
 
     # stateful_default_actions: どのルールにもマッチしなかった場合の動作
-    # aws:alert_strict = ALERTログを記録するが通過を許可（監視モード）
-    # aws:drop_strict = ルールにマッチしないトラフィックを拒否（厳格モード）
-    #
-    # DEFAULT_ACTION_ORDER モードでの評価順序:
+    # DEFAULT_ACTION_ORDER モードでは指定不可（指定するとエラーになる）
+    # このモードでは以下の評価順序で自動的に処理される:
     # 1. DENYLIST → マッチしたら拒否・ALERT
-    # 2. ALLOWLIST → マッチしたら許可（次のルールへ進む）
-    # 3. stateful_default_actions → aws:alert_strict（許可・ALERT記録）
+    # 2. ALLOWLIST → マッチしたら許可・FLOW
+    # 3. マッチしないトラフィック → 許可（デフォルト動作）
     #
     # このハンズオンではDENYLISTのみでブロックし、それ以外は許可する方式を採用
-    stateful_default_actions = ["aws:alert_strict"]
+    # stateful_default_actions は指定しない
 
     # stateful_engine_options: Statefulエンジンの動作モード
     stateful_engine_options {
@@ -1007,21 +1009,14 @@ resource "aws_athena_workgroup" "firewall_analysis" {
 # Private Subnet → Firewall Endpoint へのルート
 # EC2からのすべてのインターネット向けトラフィックをFirewallに送る
 resource "aws_route" "private_to_firewall" {
+  count = local.firewall_endpoint_id != null ? 1 : 0
+
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
   vpc_endpoint_id        = local.firewall_endpoint_id
 
   # Network Firewallのエンドポイント作成完了を明示的に待機
   depends_on = [aws_networkfirewall_firewall.main]
-
-  # Firewall Endpoint IDがnullでないことを検証
-  # Firewallのデプロイが完了していない場合はエラーで停止
-  lifecycle {
-    precondition {
-      condition     = local.firewall_endpoint_id != null
-      error_message = "Network Firewall endpoint ID is null. Firewall deployment may have failed or is not yet complete in availability zone ${var.availability_zone}."
-    }
-  }
 }
 
 # IGW Edge Association (アウトバウンド通信の戻りトラフィック用)

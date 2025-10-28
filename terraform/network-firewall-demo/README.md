@@ -83,7 +83,98 @@ terraform apply
 - Athena、Glue作成権限
 - EC2インスタンス作成権限
 
-## 🧪 検証手順
+## 📝 ハンズオン実施手順
+
+### ステップ1: デプロイ
+
+```bash
+cd terraform/network-firewall-demo
+terraform init
+terraform apply
+```
+
+デプロイ完了まで約10-15分かかります。完了後、以下の情報が出力されます：
+
+- `ec2_instance_id`: EC2インスタンスID
+- `firewall_endpoint_id`: Network Firewall EndpointID
+- `s3_log_bucket`: ログ保存用S3バケット名
+
+### ステップ2: EC2にSSM接続
+
+```bash
+# outputから取得したインスタンスIDを使用
+aws ssm start-session --target <EC2_INSTANCE_ID> --region ap-northeast-1
+```
+
+**接続できない場合:**
+- VPCエンドポイント（SSM用）のデプロイ完了まで数分待つ
+- EC2インスタンスのSSMエージェント起動まで数分待つ
+
+### ステップ3: ドメインフィルタリングをテスト
+
+SSM接続後、以下のコマンドでドメインルールを検証：
+
+```bash
+# 許可されるドメイン（成功するはず）
+curl -I https://example.com      # ✓ ALLOWLIST
+curl -I https://aws.amazon.com    # ✓ ALLOWLIST
+
+# 拒否されるドメイン（タイムアウトするはず）
+curl -I https://google.com        # ✗ DENYLIST
+```
+
+### ステップ4: CloudWatch Logsでアラート確認
+
+1. CloudWatchコンソール → Logs → Log groups
+2. ロググループ: `/aws/network-firewall/alert`
+3. Logs Insights で以下のクエリを実行：
+
+```
+fields @timestamp, event.alert.signature, event.dest_ip
+| filter event.alert.action = "blocked"
+| sort @timestamp desc
+| limit 20
+```
+
+google.comへのアクセスがブロックされ、ALERTログに記録されているはずです。
+
+### ステップ5: S3ログとAthenaで分析
+
+```bash
+# S3にFLOWログが出力されているか確認
+terraform output s3_log_bucket
+aws s3 ls s3://<BUCKET_NAME>/AWSLogs/NetworkFirewall/flow/ --recursive
+```
+
+Athenaコンソールで以下のクエリを実行：
+
+```sql
+-- FLOWログテーブル作成DDL
+terraform output athena_ddl_flow
+
+-- トラフィック統計クエリ
+SELECT
+  src_ip,
+  dest_ip,
+  dest_port,
+  protocol,
+  COUNT(*) as connection_count,
+  SUM(packets) as total_packets,
+  SUM(bytes) as total_bytes
+FROM network_firewall_flow
+WHERE year='2025' AND month='10' AND day='28'
+GROUP BY src_ip, dest_ip, dest_port, protocol
+ORDER BY total_bytes DESC
+LIMIT 10;
+```
+
+### ステップ6: クリーンアップ
+
+```bash
+terraform destroy
+```
+
+## 🧪 検証手順（詳細）
 
 ### 1. ドメインルールのテスト
 
@@ -243,9 +334,44 @@ ORDER BY total_bytes DESC;
 
 ## 🧹 クリーンアップ
 
+### terraform destroyでの削除
+
 ```bash
+cd terraform/network-firewall-demo
 terraform destroy
 ```
+
+**注意事項:**
+- デプロイ時と同じAWSプロファイル/認証情報を使用してください
+- 削除には5-10分程度かかります
+- すべてのリソースが正常に削除されることを確認してください
+
+**削除されるリソース:**
+- Network Firewall（Firewall本体、Rule Groups、Policy）
+- VPC関連（VPC、Subnets、Route Tables、IGW、NAT Gateway、VPC Endpoints）
+- EC2インスタンス、セキュリティグループ
+- S3バケット（ログデータも含む）
+- CloudWatch Logs、メトリクスフィルター
+- Glue Database、Athena Workgroup
+- IAMロール、インスタンスプロファイル
+
+### 削除確認
+
+削除が完了したら、以下のコマンドでリソースが削除されたことを確認してください：
+
+```bash
+# VPC削除確認
+aws ec2 describe-vpcs --filters "Name=tag:Name,Values=network-firewall-demo-vpc" --query 'Vpcs[].VpcId'
+
+# Network Firewall削除確認
+aws network-firewall list-firewalls --query 'Firewalls[?FirewallName==`nfw-demo`]'
+
+# S3バケット削除確認
+aws s3 ls | grep nfw-logs
+aws s3 ls | grep athena-results
+```
+
+すべてのコマンドで空の結果が返れば、削除完了です。
 
 ## 🔧 トラブルシューティング
 
@@ -343,24 +469,29 @@ terraform destroy
 | [aws_cloudwatch_log_group.network_firewall_alert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_metric_filter.allowed_domains](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) | resource |
 | [aws_cloudwatch_log_metric_filter.blocked_domains](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) | resource |
+| [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip) | resource |
 | [aws_glue_catalog_database.firewall_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/glue_catalog_database) | resource |
 | [aws_iam_instance_profile.ssm_profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_role.ssm_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.ssm_core](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_instance.test](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
 | [aws_internet_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/internet_gateway) | resource |
+| [aws_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/nat_gateway) | resource |
 | [aws_networkfirewall_firewall.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_firewall) | resource |
 | [aws_networkfirewall_firewall_policy.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_firewall_policy) | resource |
 | [aws_networkfirewall_logging_configuration.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_logging_configuration) | resource |
 | [aws_networkfirewall_rule_group.allowlist](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
 | [aws_networkfirewall_rule_group.denylist](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
-| [aws_route.firewall_to_igw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
+| [aws_route.firewall_to_nat](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route.igw_to_firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route.private_to_firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
+| [aws_route.public_to_igw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_route_table.firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table) | resource |
+| [aws_route_table.igw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table) | resource |
 | [aws_route_table.private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table) | resource |
 | [aws_route_table.public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table) | resource |
 | [aws_route_table_association.firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
+| [aws_route_table_association.igw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
 | [aws_route_table_association.private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
 | [aws_route_table_association.public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
 | [aws_s3_bucket_policy.firewall_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
