@@ -12,6 +12,7 @@ AWS Network Firewallのドメインルール検証とS3ログのAthena分析を�
 ## 🏗️ アーキテクチャ
 
 ```
+往路 (EC2 → インターネット):
 EC2 (Private Subnet: 10.0.2.0/24)
   ↓ Route: 0.0.0.0/0 → Firewall Endpoint
 Network Firewall (Firewall Subnet: 10.0.1.0/24)
@@ -21,20 +22,25 @@ Network Firewall (Firewall Subnet: 10.0.1.0/24)
 NAT Gateway (Public Subnet: 10.0.0.0/24)
   ↓ 送信元NAT変換 (Private IP → Public IP)
   ↓ Route: 0.0.0.0/0 → IGW
-Internet Gateway
+Internet Gateway (IGW)
   ↓
 インターネット
 
 復路 (インターネット → EC2):
 インターネット
   ↓
-Internet Gateway
+Internet Gateway (IGW)
+  ↓ IGW Route Table (Edge Association)
   ↓ Route: 10.0.2.0/24 → Firewall Endpoint
-Network Firewall
+Network Firewall (Firewall Subnet: 10.0.1.0/24)
   ↓ ステートフル検査 (確立済み接続の戻りパケット)
-  ↓
-EC2 (Private Subnet)
+  ↓ Private Subnet Route Table
+EC2 (Private Subnet: 10.0.2.0/24)
 ```
+
+**重要なポイント:**
+- IGWにルートテーブル（Edge Association）を設定し、Private Subnet宛てトラフィックをFirewall Endpointに転送
+- これにより、インターネットからの戻りトラフィック（HTTPレスポンス等）が正しくEC2に到達
 
 ## 🚀 デプロイ手順
 

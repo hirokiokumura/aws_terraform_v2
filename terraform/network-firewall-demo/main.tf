@@ -138,6 +138,29 @@ resource "aws_internet_gateway" "main" {
   tags   = { Name = "nfw-demo-igw" }
 }
 
+# IGW Route Table (Edge Association)
+# IGWからPrivate Subnetへの戻りトラフィックをFirewall Endpointに転送
+resource "aws_route_table" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "igw-rtb" }
+}
+
+# IGW → Firewall Endpoint へのルート（Private Subnet宛て）
+# インターネットからの戻りトラフィック（レスポンス）をFirewall経由でPrivate Subnetに転送
+resource "aws_route" "igw_to_firewall" {
+  route_table_id         = aws_route_table.igw.id
+  destination_cidr_block = var.private_subnet_cidr
+  vpc_endpoint_id        = local.firewall_endpoint_id
+
+  depends_on = [aws_networkfirewall_firewall.main]
+}
+
+# IGWルートテーブルをIGWにアタッチ
+resource "aws_route_table_association" "igw" {
+  gateway_id     = aws_internet_gateway.main.id
+  route_table_id = aws_route_table.igw.id
+}
+
 #####################################
 # NAT Gateway (Required for Private Subnet internet access)
 #####################################
