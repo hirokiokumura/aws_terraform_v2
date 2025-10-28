@@ -258,6 +258,44 @@ module "ec2_security_group" {
 }
 
 #####################################
+# VPC Endpoint Security Group
+#####################################
+
+module "vpc_endpoint_security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = "vpc-endpoint-sg"
+  description = "Security group for VPC endpoints (SSM, EC2messages, SSMmessages)"
+  vpc_id      = aws_vpc.main.id
+
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = aws_vpc.main.cidr_block
+      description = "Allow HTTPS from VPC for VPC endpoints"
+    }
+  ]
+
+  egress_with_cidr_blocks = [
+    {
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = "0.0.0.0/0"
+      description = "Allow all outbound traffic"
+    }
+  ]
+
+  tags = {
+    Name        = "vpc-endpoint-sg"
+    Environment = "demo"
+  }
+}
+
+#####################################
 # IAM for SSM
 #####################################
 
@@ -326,6 +364,47 @@ resource "aws_instance" "test" {
   tags = {
     Name        = "firewall-test-ec2"
     Environment = "demo"
+  }
+}
+
+#####################################
+# VPC Endpoints for SSM
+#####################################
+
+locals {
+  # SSM接続に必要なVPCエンドポイント
+  # VPCエンドポイントを使用することで、インターネット経由せずにプライベートにSSM接続可能
+  # コスト: 各エンドポイント約$7.3/月 × 3 = 約$22/月
+  endpoints = {
+    ssm = {
+      service_name = "com.amazonaws.${data.aws_region.current.name}.ssm"
+      description  = "SSM endpoint for Session Manager"
+    }
+    ssmmessages = {
+      service_name = "com.amazonaws.${data.aws_region.current.name}.ssmmessages"
+      description  = "SSM Messages endpoint for Session Manager"
+    }
+    ec2messages = {
+      service_name = "com.amazonaws.${data.aws_region.current.name}.ec2messages"
+      description  = "EC2 Messages endpoint for SSM Agent"
+    }
+  }
+}
+
+resource "aws_vpc_endpoint" "ssm" {
+  for_each = local.endpoints
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = each.value.service_name
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private.id]
+  security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+  private_dns_enabled = true
+
+  tags = {
+    Name        = "nfw-demo-${each.key}-endpoint"
+    Environment = "demo"
+    Description = each.value.description
   }
 }
 

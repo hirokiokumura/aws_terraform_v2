@@ -81,11 +81,11 @@ terraform apply
 
 ### 1. ドメインルールのテスト
 
-**重要**: SSM接続はNAT Gateway経由でインターネット経由のSSMエンドポイントに接続します。VPCエンドポイントは使用していません（コスト削減のため）。
+**重要**: SSM接続はVPCエンドポイント経由でプライベートに接続します。
 
 ```bash
 # 1. terraform outputから取得したインスタンスIDでSSM接続
-# 注意: NAT GatewayとNetwork Firewallのデプロイ完了後に接続可能になります
+# 注意: VPCエンドポイントとNetwork Firewallのデプロイ完了後に接続可能になります
 aws ssm start-session --target <EC2_INSTANCE_ID> --region ap-northeast-1
 
 # 2. 許可されるドメインをテスト (成功するはず)
@@ -99,17 +99,37 @@ curl -I https://google.com
 **SSM接続の通信経路:**
 ```
 EC2 (Private Subnet)
+  ↓ Private DNS (ssm.ap-northeast-1.amazonaws.com)
+  ↓ VPC内部ルーティング
+VPC Endpoints (Private Subnet)
+  - com.amazonaws.ap-northeast-1.ssm
+  - com.amazonaws.ap-northeast-1.ssmmessages
+  - com.amazonaws.ap-northeast-1.ec2messages
+  ↓ PrivateLink経由でAWSサービスに接続
+SSM Service (AWS内部ネットワーク)
+```
+
+**外部インターネットへの通信経路 (example.com, aws.amazon.com等):**
+```
+EC2 (Private Subnet)
   ↓ 0.0.0.0/0 → Firewall Endpoint
-Network Firewall
-  ↓ ドメインフィルタリング (amazonaws.comは許可)
+Network Firewall (Firewall Subnet)
+  ↓ ドメインフィルタリング
+  ↓ ALLOWLIST: example.com, amazonaws.com → 許可
+  ↓ DENYLIST: google.com → 拒否・ALERT
   ↓ 0.0.0.0/0 → NAT Gateway
-NAT Gateway
+NAT Gateway (Public Subnet)
   ↓ 送信元NAT変換
   ↓ 0.0.0.0/0 → IGW
-Internet
+Internet Gateway
   ↓
-SSM Public Endpoint (ssm.ap-northeast-1.amazonaws.com)
+インターネット
 ```
+
+**コスト概算:**
+- VPCエンドポイント: 約$7.3/月 × 3エンドポイント = 約$22/月
+- NAT Gateway: 約$32/月 (時間料金 + データ転送料金)
+- 合計: 約$54/月
 
 ### 2. CloudWatch Logsでアラート確認
 
