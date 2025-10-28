@@ -456,36 +456,37 @@ resource "aws_networkfirewall_firewall_policy" "main" {
     # stateful_engine_options: Statefulエンジンの動作モード
     stateful_engine_options {
       # rule_order: ルールの評価順序を制御
-      # STRICT_ORDER: priority順に評価し、最初にマッチしたルールを適用（推奨）
-      # DEFAULT_ACTION_ORDER: アクション優先度で評価（Pass > Drop > Alert）
-      # STRICT_ORDERを使用することで、DENY → ALLOWの順序を明確に制御
-      rule_order = "STRICT_ORDER"
+      # DEFAULT_ACTION_ORDER: アクション優先度で自動評価（DENYLIST > ALLOWLIST）
+      # STRICT_ORDER: 明示的なpriorityで評価（Suricataルール用、rules_source_listでは使用不可）
+      #
+      # rules_source_list (ALLOWLIST/DENYLIST) を使用する場合は DEFAULT_ACTION_ORDER が必須
+      # このモードでは、DENYLISTが自動的にALLOWLISTより優先されるため、
+      # 明示的なpriority設定は不要（設定するとエラーになる）
+      rule_order = "DEFAULT_ACTION_ORDER"
     }
 
     # --- ルールグループの参照 ---
-    # 複数のルールグループを優先順位付きで適用
-    # priority: 数字が小さいほど優先度が高い（1が最優先）
+    # DEFAULT_ACTION_ORDERモードでは、priorityフィールドは使用しない
+    # ルールの優先順位は自動的に決定される: DENYLIST > ALLOWLIST > stateful_default_actions
 
-    # 1. DENYLIST（優先度: 1）
-    # 最初に評価することで、悪性ドメインへのアクセスを確実にブロック
-    # ALLOWLISTより優先されるため、誤ってブロックすべきドメインを許可しない
+    # DENYLIST ルールグループ
+    # マッチしたトラフィックを即座に拒否し、ALERTログに記録
+    # ALLOWLISTより優先して評価される
     stateful_rule_group_reference {
-      priority     = 1
       resource_arn = aws_networkfirewall_rule_group.denylist.arn
     }
 
-    # 2. ALLOWLIST（優先度: 10）
-    # DENYLISTに該当しないトラフィックのうち、許可されたドメインのみ通過
-    # 優先度を離して設定（1と10）することで、将来的に中間ルール追加が容易
+    # ALLOWLIST ルールグループ
+    # マッチしたトラフィックを許可
+    # DENYLISTの後に評価される
     stateful_rule_group_reference {
-      priority     = 10
       resource_arn = aws_networkfirewall_rule_group.allowlist.arn
     }
 
     # 処理フロー:
     # 1. Statelessエンジンで基本フィルタリング → SFEに転送
-    # 2. Statefulエンジンで優先度1（DENY）を評価 → マッチしたら拒否
-    # 3. 優先度10（ALLOW）を評価 → マッチしたら許可
+    # 2. StatefulエンジンでDENYLISTを評価 → マッチしたら拒否
+    # 3. ALLOWLISTを評価 → マッチしたら許可
     # 4. どちらにもマッチしない → aws:drop_strictで拒否
   }
 
