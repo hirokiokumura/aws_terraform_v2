@@ -154,7 +154,11 @@ resource "aws_route" "igw_to_firewall" {
   destination_cidr_block = var.private_subnet_cidr
   vpc_endpoint_id        = local.firewall_endpoint_id
 
-  depends_on = [aws_networkfirewall_firewall.main]
+  # タイミング問題を防ぐため、Firewall作成とIGW作成の両方を明示的に待機
+  depends_on = [
+    aws_networkfirewall_firewall.main,
+    aws_internet_gateway.main
+  ]
 }
 
 # IGWルートテーブルをIGWにアタッチ
@@ -163,6 +167,11 @@ resource "aws_route_table_association" "igw" {
 
   gateway_id     = aws_internet_gateway.main.id
   route_table_id = aws_route_table.igw.id
+
+  # IGWルート作成後にアタッチする
+  depends_on = [
+    aws_route.igw_to_firewall
+  ]
 }
 
 #####################################
