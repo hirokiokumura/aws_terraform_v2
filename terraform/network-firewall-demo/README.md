@@ -78,26 +78,38 @@ curl -I https://aws.amazon.com
 curl -I https://google.com
 ```
 
-### 2. S3ログの確認
+### 2. CloudWatch Logsでアラート確認
+
+```bash
+# ALERTログはCloudWatch Logsに保存 (リアルタイムメトリクス用)
+# terraform outputから確認
+terraform output test_commands
+
+# CloudWatch Logs Insightsでクエリ実行例:
+# ロググループ: /aws/networkfirewall/<firewall-name>
+# クエリ:
+# fields @timestamp, event.src_ip, event.dest_ip, event.alert.signature, event.alert.action
+# | filter event.alert.action = "blocked"
+# | sort @timestamp desc
+# | limit 100
+```
+
+### 3. S3ログの確認
 
 ```bash
 # terraform outputからバケット名を取得
 terraform output s3_log_bucket
 
-# ALERTログ (拒否されたドメインなど)
-aws s3 ls s3://<BUCKET_NAME>/alert/ --recursive
-
-# FLOWログ (全トラフィックフロー)
-aws s3 ls s3://<BUCKET_NAME>/flow/ --recursive
+# FLOWログ (全トラフィックフロー) - S3に保存
+aws s3 ls s3://<BUCKET_NAME>/AWSLogs/NetworkFirewall/flow/ --recursive
 ```
 
-### 3. Athenaでログ分析
+### 4. Athenaでログ分析
 
-#### 3.1 テーブル作成（パーティション対応）
+#### 4.1 テーブル作成（パーティション対応）
 
 ```bash
-# DDLを出力
-terraform output athena_ddl_alert
+# FLOWログのDDLを出力
 terraform output athena_ddl_flow
 ```
 
@@ -109,29 +121,11 @@ Athenaコンソールで上記DDLを実行してテーブルを作成します�
 - `MSCK REPAIR TABLE` コマンド不要
 - クエリ時のスキャンデータ量を大幅削減（コスト最適化）
 
-#### 3.2 サンプルクエリ（パーティションフィルタ付き）
+#### 4.2 サンプルクエリ（パーティションフィルタ付き）
 
 ```bash
 # クエリ例を出力（パーティション利用のベストプラクティス付き）
 terraform output athena_sample_queries
-```
-
-**拒否されたドメインの確認（特定日のみスキャン）:**
-
-```sql
-SELECT
-  from_unixtime(event_timestamp) as timestamp,
-  event.src_ip,
-  event.dest_ip,
-  event.alert.signature,
-  event.alert.action
-FROM network_firewall_logs.alert_logs
-WHERE event.alert.action = 'blocked'
-  AND year = '2024'
-  AND month = '01'
-  AND day = '15'
-ORDER BY event_timestamp DESC
-LIMIT 100;
 ```
 
 **トラフィック統計（パーティションフィルタで高速化）:**
@@ -143,7 +137,7 @@ SELECT
   COUNT(*) as connection_count,
   SUM(event.netflow.bytes) as total_bytes
 FROM network_firewall_logs.flow_logs
-WHERE year = '2024'
+WHERE year = '2025'
   AND month = '01'
   AND day = '15'
 GROUP BY event.dest_ip, event.dest_port
@@ -162,13 +156,17 @@ ORDER BY total_bytes DESC;
 
 - ルールにマッチしたトラフィックの詳細
 - 拒否されたドメインアクセスなど
-- S3パス: `s3://<bucket>/AWSLogs/NetworkFirewall/alert/<account-id>/firewall/<region>/<firewall-name>/yyyy/mm/dd/HH/`
+- **保存先**: CloudWatch Logs (リアルタイムメトリクス・アラート用)
+- **ロググループ**: `/aws/networkfirewall/<firewall-name>`
+- **用途**: CloudWatch Metrics、CloudWatch Logs Insightsでの分析
 
 ### FLOW ログ
 
 - すべてのトラフィックフロー情報
 - パケット数、バイト数など
-- S3パス: `s3://<bucket>/AWSLogs/NetworkFirewall/flow/<account-id>/firewall/<region>/<firewall-name>/yyyy/mm/dd/HH/`
+- **保存先**: S3 (長期保存・Athena分析用)
+- **S3パス**: `s3://<bucket>/AWSLogs/NetworkFirewall/flow/<account-id>/firewall/<region>/<firewall-name>/yyyy/mm/dd/HH/`
+- **用途**: Athenaでのトラフィック統計分析
 
 ### CloudWatch Metrics
 
@@ -251,12 +249,14 @@ terraform destroy
 | [aws_route_table_association.firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
 | [aws_route_table_association.private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
 | [aws_route_table_association.public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route_table_association) | resource |
+| [aws_s3_bucket_policy.firewall_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
 | [aws_subnet.firewall](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet) | resource |
 | [aws_subnet.private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet) | resource |
 | [aws_subnet.public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet) | resource |
 | [aws_vpc.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc) | resource |
 | [aws_vpc_endpoint.ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_endpoint) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_iam_policy_document.firewall_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
@@ -264,15 +264,22 @@ terraform destroy
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_availability_zone"></a> [availability\_zone](#input\_availability\_zone) | Availability Zone for all resources | `string` | `"ap-northeast-1a"` | no |
+| <a name="input_cloudwatch_log_retention_days"></a> [cloudwatch\_log\_retention\_days](#input\_cloudwatch\_log\_retention\_days) | CloudWatch Logs retention period in days | `number` | `7` | no |
+| <a name="input_ec2_ami_id"></a> [ec2\_ami\_id](#input\_ec2\_ami\_id) | AMI ID for EC2 instance (Amazon Linux 2023 recommended) | `string` | `"ami-0091f05e4b8ee6709"` | no |
+| <a name="input_firewall_subnet_cidr"></a> [firewall\_subnet\_cidr](#input\_firewall\_subnet\_cidr) | CIDR block for firewall subnet | `string` | `"10.0.1.0/24"` | no |
+| <a name="input_private_subnet_cidr"></a> [private\_subnet\_cidr](#input\_private\_subnet\_cidr) | CIDR block for private subnet | `string` | `"10.0.2.0/24"` | no |
+| <a name="input_project_name"></a> [project\_name](#input\_project\_name) | Project name for resource naming and tagging | `string` | `"network-firewall-demo"` | no |
+| <a name="input_public_subnet_cidr"></a> [public\_subnet\_cidr](#input\_public\_subnet\_cidr) | CIDR block for public subnet | `string` | `"10.0.0.0/24"` | no |
+| <a name="input_s3_log_expiration_days"></a> [s3\_log\_expiration\_days](#input\_s3\_log\_expiration\_days) | S3 log expiration period in days | `number` | `90` | no |
+| <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | CIDR block for VPC | `string` | `"10.0.0.0/22"` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
 | <a name="output_athena_database"></a> [athena\_database](#output\_athena\_database) | Athena database name for log analysis |
-| <a name="output_athena_ddl_alert"></a> [athena\_ddl\_alert](#output\_athena\_ddl\_alert) | Athena DDL to create ALERT logs table with partitions |
 | <a name="output_athena_ddl_flow"></a> [athena\_ddl\_flow](#output\_athena\_ddl\_flow) | Athena DDL to create FLOW logs table with partitions |
-| <a name="output_athena_sample_queries"></a> [athena\_sample\_queries](#output\_athena\_sample\_queries) | Sample Athena queries for log analysis with partition filters |
+| <a name="output_athena_sample_queries"></a> [athena\_sample\_queries](#output\_athena\_sample\_queries) | Sample Athena queries for FLOW log analysis with partition filters |
 | <a name="output_athena_workgroup"></a> [athena\_workgroup](#output\_athena\_workgroup) | Athena workgroup name |
 | <a name="output_ec2_instance_id"></a> [ec2\_instance\_id](#output\_ec2\_instance\_id) | EC2 Instance ID for SSM connection |
 | <a name="output_firewall_endpoint_id"></a> [firewall\_endpoint\_id](#output\_firewall\_endpoint\_id) | Network Firewall Endpoint ID |

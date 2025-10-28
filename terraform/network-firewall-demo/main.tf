@@ -73,6 +73,16 @@ variable "project_name" {
   default     = "network-firewall-demo"
 }
 
+variable "ec2_ami_id" {
+  description = "AMI ID for EC2 instance (Amazon Linux 2023 recommended)"
+  type        = string
+  # デフォルト: ap-northeast-1リージョンのAmazon Linux 2023最新安定版
+  # 他リージョンで使用する場合は、terraform.tfvarsで上書きしてください
+  # 最新AMI ID確認方法:
+  # aws ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-*-x86_64" "Name=state,Values=available" --query "reverse(sort_by(Images, &CreationDate))[0].ImageId" --region ap-northeast-1
+  default = "ami-0091f05e4b8ee6709" # Amazon Linux 2023 (ap-northeast-1, 2024-01時点)
+}
+
 #####################################
 # VPC
 #####################################
@@ -296,8 +306,9 @@ resource "aws_iam_instance_profile" "ssm_profile" {
 #####################################
 
 resource "aws_instance" "test" {
-  # 最新のAmazon Linux 2023 AMIを動的に取得
-  ami                         = data.aws_ami.amazon_linux_2023.id
+  # Amazon Linux 2023 AMI (変数で指定)
+  # デフォルトはap-northeast-1リージョンの最新安定版
+  ami                         = var.ec2_ami_id
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.private.id
   iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name
@@ -516,27 +527,6 @@ resource "aws_networkfirewall_firewall_policy" "main" {
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# 最新のAmazon Linux 2023 AMIを自動取得
-data "aws_ami" "amazon_linux_2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  filter {
-    name   = "root-device-type"
-    values = ["ebs"]
-  }
-}
-
 #####################################
 # S3 Bucket for Network Firewall Logs
 #####################################
@@ -709,33 +699,6 @@ resource "aws_networkfirewall_logging_configuration" "main" {
   firewall_arn = aws_networkfirewall_firewall.main.arn
 
   logging_configuration {
-    # --- S3へのALERTログ出力 ---
-    # 用途: 長期保管、Athena分析、監査証跡
-    log_destination_config {
-      log_destination = {
-        # bucketName: ログを保存するS3バケット
-        bucketName = module.s3_firewall_logs.s3_bucket_id
-
-        # prefix: S3内のログ保存パス
-        # Network Firewallは以下の構造で自動保存:
-        # s3://<bucket>/<prefix>/<account-id>/firewall/<region>/<firewall-name>/yyyy/mm/dd/HH/<log-file>.gz
-        # 例: AWSLogs/NetworkFirewall/alert/123456789012/firewall/ap-northeast-1/vpc-firewall/2024/01/15/10/xxx.gz
-        prefix = "AWSLogs/NetworkFirewall/alert"
-      }
-
-      # log_destination_type: ログ出力先のタイプ
-      # 選択肢: S3, CloudWatchLogs, KinesisDataFirehose
-      log_destination_type = "S3"
-
-      # log_type: 出力するログのタイプ
-      # ALERT: ルールにマッチしたトラフィックの詳細（ブロック/許可情報を含む）
-      # - どのルールにマッチしたか
-      # - 送信元/宛先IP、ポート
-      # - ドメイン名（HTTP_HOST/TLS_SNI）
-      # - タイムスタンプ
-      log_type = "ALERT"
-    }
-
     # --- S3へのFLOWログ出力 ---
     # 用途: トラフィック統計分析、ネットワーク可視化
     log_destination_config {
@@ -1051,77 +1014,21 @@ output "test_commands" {
 
     ### 2. S3ログの確認 ###
 
-    # ALERTログの確認
-    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/alert/ --recursive
-
-    # FLOWログの確認
-    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/flow/ --recursive
+    # FLOWログの確認 (S3に保存されるのはFLOWログのみ)
+    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/flow/ --recursive
 
 
-    ### 3. Athenaでログ分析 ###
+    ### 3. CloudWatch Logsでアラート確認 ###
+
+    # ALERTログはCloudWatch Logsに保存
+    aws logs tail ${aws_cloudwatch_log_group.network_firewall_alert.name} --follow
+
+
+    ### 4. Athenaでログ分析 ###
 
     # 以下のDDLをAthenaで実行してテーブル作成
     # ワークグループ: ${aws_athena_workgroup.firewall_analysis.name}
     # データベース: ${aws_glue_catalog_database.firewall_logs.name}
-  EOT
-}
-
-output "athena_ddl_alert" {
-  description = "Athena DDL to create ALERT logs table with partitions"
-  value       = <<-EOT
-    -- パーティション対応のALERTログテーブル作成
-    -- Network Firewallは自動的に yyyy/mm/dd/HH 形式でログを保存
-    -- パーティション化により、特定日付のクエリが高速化&コスト削減
-
-    CREATE EXTERNAL TABLE IF NOT EXISTS ${aws_glue_catalog_database.firewall_logs.name}.alert_logs (
-      firewall_name string,
-      availability_zone string,
-      event_timestamp bigint,
-      event struct<
-        timestamp:string,
-        flow_id:bigint,
-        event_type:string,
-        src_ip:string,
-        src_port:int,
-        dest_ip:string,
-        dest_port:int,
-        proto:string,
-        alert:struct<
-          action:string,
-          signature_id:bigint,
-          rev:bigint,
-          signature:string,
-          category:string,
-          severity:bigint
-        >
-      >
-    )
-    PARTITIONED BY (
-      year string,
-      month string,
-      day string,
-      hour string
-    )
-    ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
-    LOCATION 's3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/alert/'
-    TBLPROPERTIES (
-      'projection.enabled' = 'true',
-      'projection.year.type' = 'integer',
-      'projection.year.range' = '2020,2035',
-      'projection.month.type' = 'integer',
-      'projection.month.range' = '01,12',
-      'projection.month.digits' = '2',
-      'projection.day.type' = 'integer',
-      'projection.day.range' = '01,31',
-      'projection.day.digits' = '2',
-      'projection.hour.type' = 'integer',
-      'projection.hour.range' = '00,23',
-      'projection.hour.digits' = '2',
-      'storage.location.template' = 's3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/alert/$${year}/$${month}/$${day}/$${hour}'
-    );
-
-    -- パーティションプロジェクションにより、MSCK REPAIR TABLEは不要
-    -- Athenaが自動的にパーティションを認識してクエリを実行
   EOT
 }
 
@@ -1187,47 +1094,17 @@ output "athena_ddl_flow" {
 }
 
 output "athena_sample_queries" {
-  description = "Sample Athena queries for log analysis with partition filters"
+  description = "Sample Athena queries for FLOW log analysis with partition filters"
   value       = <<-EOT
-    -- ========================================
-    -- 1. 拒否されたドメイン(ALERT)の確認
-    -- ========================================
-    -- パーティションフィルタを使用して、特定日付のログのみスキャン
-    -- WHERE句にパーティションカラム(year, month, day)を含めることで高速化
-
-    SELECT
-      from_unixtime(event_timestamp) as timestamp,
-      event.src_ip,
-      event.dest_ip,
-      event.dest_port,
-      event.alert.signature,
-      event.alert.action
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.alert_logs
-    WHERE event.alert.action = 'blocked'
-      AND year = '2024'
-      AND month = '01'
-      AND day = '15'
-    ORDER BY event_timestamp DESC
-    LIMIT 100;
+    注意: ALERTログはCloudWatch Logsに保存されています。
+    ALERTログの分析はCloudWatch Logs Insightsを使用してください。
+    S3に保存されているのはFLOWログのみです。
 
     -- ========================================
-    -- 2. 過去24時間のブロック回数（パーティション自動検出）
-    -- ========================================
-    -- 日付範囲指定でパーティションプロジェクションが自動適用
-
-    SELECT
-      from_unixtime(event_timestamp) as timestamp,
-      event.src_ip,
-      event.alert.signature
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.alert_logs
-    WHERE event.alert.action = 'blocked'
-      AND from_unixtime(event_timestamp) >= current_timestamp - interval '24' hour
-    ORDER BY event_timestamp DESC;
-
-    -- ========================================
-    -- 3. トラフィックフロー(FLOW)の統計 - 特定日のみ
+    -- 1. トラフィックフロー(FLOW)の統計 - 特定日のみ
     -- ========================================
     -- FLOWログは大量のため、パーティションフィルタが必須
+    -- WHERE句にパーティションカラム(year, month, day)を含めることで高速化
 
     SELECT
       event.dest_ip,
@@ -1237,7 +1114,7 @@ output "athena_sample_queries" {
       SUM(event.netflow.bytes) as total_bytes,
       SUM(event.netflow.pkts) as total_packets
     FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
-    WHERE year = '2024'
+    WHERE year = '2025'
       AND month = '01'
       AND day = '15'
     GROUP BY event.dest_ip, event.dest_port, event.proto
@@ -1245,7 +1122,7 @@ output "athena_sample_queries" {
     LIMIT 20;
 
     -- ========================================
-    -- 4. 時間帯別トラフィック分析（週単位）
+    -- 2. 時間帯別トラフィック分析（週単位）
     -- ========================================
     -- パーティションフィルタで週単位のデータのみ集計
 
@@ -1254,14 +1131,14 @@ output "athena_sample_queries" {
       COUNT(*) as flow_count,
       SUM(event.netflow.bytes) as total_bytes
     FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
-    WHERE year = '2024'
+    WHERE year = '2025'
       AND month = '01'
       AND day BETWEEN '15' AND '21'
     GROUP BY date_trunc('hour', from_unixtime(event_timestamp))
     ORDER BY hour DESC;
 
     -- ========================================
-    -- 5. パーティション別のログ件数確認
+    -- 3. パーティション別のログ件数確認
     -- ========================================
     -- 各パーティションにどれだけのログがあるかを確認
 
@@ -1271,8 +1148,8 @@ output "athena_sample_queries" {
       day,
       hour,
       COUNT(*) as log_count
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.alert_logs
-    WHERE year = '2024'
+    FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
+    WHERE year = '2025'
       AND month = '01'
     GROUP BY year, month, day, hour
     ORDER BY year, month, day, hour;
@@ -1284,5 +1161,15 @@ output "athena_sample_queries" {
     -- 2. 範囲指定時は BETWEEN を使用
     -- 3. 全期間スキャンが必要な場合は集計範囲を限定
     -- 4. クエリ実行前に「Data scanned」を確認
+
+    -- ========================================
+    -- CloudWatch Logs Insightsでのアラート分析例:
+    -- ========================================
+    -- ロググループ: ${aws_cloudwatch_log_group.network_firewall_alert.name}
+    --
+    -- fields @timestamp, event.src_ip, event.dest_ip, event.alert.signature, event.alert.action
+    -- | filter event.alert.action = "blocked"
+    -- | sort @timestamp desc
+    -- | limit 100
   EOT
 }
