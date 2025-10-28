@@ -213,6 +213,53 @@ ORDER BY total_bytes DESC;
 terraform destroy
 ```
 
+## 🔧 トラブルシューティング
+
+### SSM接続できない場合
+
+**症状**: "SSM エージェントはオンラインではありません" エラー
+
+**確認手順**:
+
+1. **EC2インスタンスのステータス確認**
+   ```bash
+   # Systems Manager → Fleet Manager → Managed instances でインスタンスが表示されるか確認
+   ```
+
+2. **CloudWatch Logsでブロックログ確認**
+   ```bash
+   # ロググループ: /aws/networkfirewall/alert
+   # クエリ例:
+   fields @timestamp, event.alert.signature, event.dest_ip
+   | filter event.alert.action = "blocked"
+   | filter event.app_proto = "tls"
+   | sort @timestamp desc
+   | limit 20
+   ```
+
+3. **Network Firewallのルール確認**
+   - ALLOWLIST: `.amazonaws.com` が含まれているか確認
+   - DENYLIST: SSM関連ドメインが含まれていないか確認
+
+4. **ルーティング確認**
+   ```bash
+   # Private SubnetのルートテーブルでFirewall Endpointへのルート確認
+   # Firewall SubnetのルートテーブルでNAT Gatewayへのルート確認
+   # Public SubnetのルートテーブルでIGWへのルート確認
+   ```
+
+5. **SSMエージェントログ確認（VPCエンドポイント経由でアクセスできる場合）**
+   ```bash
+   # EC2にログインできる場合
+   sudo tail -f /var/log/amazon/ssm/amazon-ssm-agent.log
+   sudo tail -f /var/log/amazon/ssm/errors.log
+   ```
+
+**解決策**:
+- SSMエージェントは起動後数分かかる場合があります（最大5分程度待つ）
+- Network Firewallのルールが反映されるまで数分かかる場合があります
+- NAT Gatewayが正常に作成されているか確認（コンソールまたは `terraform state list`）
+
 ## 💡 学習ポイント
 
 1. **Network Firewallの動作理解**
