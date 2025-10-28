@@ -139,19 +139,29 @@ resource "aws_internet_gateway" "main" {
 }
 
 #####################################
-# NAT Gateway (Optional - for outbound only)
+# NAT Gateway (Required for Private Subnet internet access)
 #####################################
-
-# resource "aws_eip" "nat" {
-#   domain = "vpc"
-#   tags   = { Name = "nfw-demo-nat-eip" }
-# }
+# NAT Gateway: Private Subnetからインターネットへのアウトバウンド通信を可能にする
+# Network Firewallを経由したトラフィックをインターネットに転送する際、
+# プライベートIPアドレスをパブリックIPアドレスに変換する役割を担う
 #
-# resource "aws_nat_gateway" "main" {
-#   allocation_id = aws_eip.nat.id
-#   subnet_id     = aws_subnet.public.id
-#   tags          = { Name = "nfw-demo-nat" }
-# }
+# 通信経路:
+# Private Subnet (EC2) → Firewall Endpoint → Firewall Subnet → NAT Gateway → IGW → Internet
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags   = { Name = "nfw-demo-nat-eip" }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  # NAT GatewayはPublic Subnetに配置し、IGWへのルートが必要
+  depends_on = [aws_internet_gateway.main]
+
+  tags = { Name = "nfw-demo-nat" }
+}
 
 #####################################
 # Route Tables
@@ -169,6 +179,14 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# Public Subnet → IGW へのルート
+# NAT Gatewayからのアウトバウンドトラフィックをインターネットへ転送
+resource "aws_route" "public_to_igw" {
+  route_table_id         = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main.id
+}
+
 # Firewall Subnet Route Table
 # すべてのルートはaws_routeリソースで個別管理
 resource "aws_route_table" "firewall" {
@@ -176,11 +194,13 @@ resource "aws_route_table" "firewall" {
   tags   = { Name = "firewall-rtb" }
 }
 
-# Firewall Subnet → IGW へのルート
-resource "aws_route" "firewall_to_igw" {
+# Firewall Subnet → NAT Gateway へのルート
+# Network Firewallで検査済みのトラフィックをNAT Gatewayに転送
+# NAT GatewayがプライベートIPをパブリックIPに変換してからIGWへ転送
+resource "aws_route" "firewall_to_nat" {
   route_table_id         = aws_route_table.firewall.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.main.id
+  nat_gateway_id         = aws_nat_gateway.main.id
 }
 
 resource "aws_route_table_association" "firewall" {

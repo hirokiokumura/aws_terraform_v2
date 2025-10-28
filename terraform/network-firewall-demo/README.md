@@ -15,12 +15,25 @@ AWS Network Firewallのドメインルール検証とS3ログのAthena分析を�
 EC2 (Private Subnet: 10.0.2.0/24)
   ↓ Route: 0.0.0.0/0 → Firewall Endpoint
 Network Firewall (Firewall Subnet: 10.0.1.0/24)
-  ↓ ドメインルールでフィルタリング
+  ↓ ドメインルールでフィルタリング (ALLOWLIST/DENYLIST)
+  ↓ Route: 0.0.0.0/0 → NAT Gateway
+  ↓ Logs → CloudWatch Logs (ALERT) / S3 (FLOW)
+NAT Gateway (Public Subnet: 10.0.0.0/24)
+  ↓ 送信元NAT変換 (Private IP → Public IP)
   ↓ Route: 0.0.0.0/0 → IGW
-  ↓ Logs → S3 (ALERT/FLOW)
 Internet Gateway
   ↓
 インターネット
+
+復路 (インターネット → EC2):
+インターネット
+  ↓
+Internet Gateway
+  ↓ Route: 10.0.2.0/24 → Firewall Endpoint
+Network Firewall
+  ↓ ステートフル検査 (確立済み接続の戻りパケット)
+  ↓
+EC2 (Private Subnet)
 ```
 
 ## 🚀 デプロイ手順
@@ -55,12 +68,14 @@ terraform apply
 
 **必要な権限:**
 
-- VPC、Subnet、IGW、Route Table作成権限
+- VPC、Subnet、IGW、NAT Gateway、Route Table作成権限
 - Network Firewall作成権限
 - S3バケット作成権限
-- IAMロール作成権限
 - CloudWatch Logs作成権限
+- Elastic IP割り当て権限
+- IAMロール作成権限
 - Athena、Glue作成権限
+- EC2インスタンス作成権限
 
 ## 🧪 検証手順
 
