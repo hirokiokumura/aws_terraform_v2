@@ -95,11 +95,11 @@ terraform apply
 aws ssm start-session --target <EC2_INSTANCE_ID> --region ap-northeast-1
 
 # 2. 許可されるドメインをテスト (成功するはず)
-curl -I https://example.com
-curl -I https://aws.amazon.com
+curl -I https://example.com      # ALLOWLIST: .example.com
+curl -I https://aws.amazon.com    # ALLOWLIST: .amazon.com
 
 # 3. 拒否されるドメインをテスト (タイムアウトするはず)
-curl -I https://google.com
+curl -I https://google.com        # DENYLIST: .google.com
 ```
 
 **SSM接続の通信経路:**
@@ -121,8 +121,8 @@ EC2 (Private Subnet)
   ↓ 0.0.0.0/0 → Firewall Endpoint
 Network Firewall (Firewall Subnet)
   ↓ ドメインフィルタリング
-  ↓ ALLOWLIST: example.com, amazonaws.com → 許可
-  ↓ DENYLIST: google.com → 拒否・ALERT
+  ↓ ALLOWLIST: .example.com, .amazonaws.com, .amazon.com → 許可
+  ↓ DENYLIST: .google.com → 拒否・ALERT
   ↓ 0.0.0.0/0 → NAT Gateway
 NAT Gateway (Public Subnet)
   ↓ 送信元NAT変換

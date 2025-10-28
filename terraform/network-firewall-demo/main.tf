@@ -477,12 +477,14 @@ resource "aws_networkfirewall_rule_group" "allowlist" {
         # targets: 許可するドメインのリスト
         # 先頭のドット(.)はワイルドカードを意味（例: .example.com は www.example.com, api.example.com などを含む）
         #
-        # SSM接続に必要なドメイン:
-        # - .amazonaws.com: 全てのAWSサービスエンドポイント（SSM, EC2messages, SSMmessages含む）
+        # 許可ドメイン:
+        # - .amazonaws.com: AWSサービスエンドポイント（SSM, EC2messages, SSMmessages等）
+        # - .amazon.com: Amazon.comドメイン（aws.amazon.com等）
         # - .example.com: テスト用ドメイン
         targets = [
           ".example.com",
-          ".amazonaws.com"
+          ".amazonaws.com",
+          ".amazon.com"
         ]
 
         # target_types: 検査対象のプロトコル層
