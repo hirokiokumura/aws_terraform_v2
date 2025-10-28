@@ -120,9 +120,12 @@ SSM Service (AWS内部ネットワーク)
 EC2 (Private Subnet)
   ↓ 0.0.0.0/0 → Firewall Endpoint
 Network Firewall (Firewall Subnet)
-  ↓ ドメインフィルタリング
-  ↓ ALLOWLIST: .example.com, .amazonaws.com, .amazon.com → 許可
-  ↓ DENYLIST: .google.com → 拒否・ALERT
+  ↓ ドメインフィルタリング（評価順序: DENYLIST > ALLOWLIST > Default）
+  ↓
+  ↓ DENYLIST: .google.com → マッチ → 拒否・ALERT
+  ↓ ALLOWLIST: .example.com, .amazonaws.com, .amazon.com → マッチ → 許可
+  ↓ Default Action: aws:alert_strict → 許可・ALERT記録（監視モード）
+  ↓
   ↓ 0.0.0.0/0 → NAT Gateway
 NAT Gateway (Public Subnet)
   ↓ 送信元NAT変換
@@ -131,6 +134,11 @@ Internet Gateway
   ↓
 インターネット
 ```
+
+**重要**:
+- DENYLISTにマッチしたドメイン（.google.com）のみブロック
+- それ以外のすべてのトラフィックは許可（監視モード）
+- ALLOWLISTは明示的に許可するドメインを定義（オプション）
 
 **コスト概算:**
 - VPCエンドポイント: 約$7.3/月 × 3エンドポイント = 約$22/月

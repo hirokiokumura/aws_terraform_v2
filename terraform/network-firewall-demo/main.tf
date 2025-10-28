@@ -559,10 +559,16 @@ resource "aws_networkfirewall_firewall_policy" "main" {
     # 用途: ドメインフィルタリング、IPS/IDS、プロトコル検査
 
     # stateful_default_actions: どのルールにもマッチしなかった場合の動作
-    # aws:drop_strict = ルールにマッチしないトラフィックを拒否
-    # 他の選択肢: aws:drop_established（確立済み接続は許可）, aws:alert_strict（アラートのみ）
-    # このハンズオンでは厳格なドロップポリシーを採用
-    stateful_default_actions = ["aws:drop_strict"]
+    # aws:alert_strict = ALERTログを記録するが通過を許可（監視モード）
+    # aws:drop_strict = ルールにマッチしないトラフィックを拒否（厳格モード）
+    #
+    # DEFAULT_ACTION_ORDER モードでの評価順序:
+    # 1. DENYLIST → マッチしたら拒否・ALERT
+    # 2. ALLOWLIST → マッチしたら許可（次のルールへ進む）
+    # 3. stateful_default_actions → aws:alert_strict（許可・ALERT記録）
+    #
+    # このハンズオンではDENYLISTのみでブロックし、それ以外は許可する方式を採用
+    stateful_default_actions = ["aws:alert_strict"]
 
     # stateful_engine_options: Statefulエンジンの動作モード
     stateful_engine_options {
