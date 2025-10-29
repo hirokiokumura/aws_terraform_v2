@@ -256,6 +256,9 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+# Private Subnet → Firewall Endpoint へのルートは
+# 782行目付近に定義されています
+
 #####################################
 # Security Groups
 #####################################
@@ -452,11 +455,10 @@ locals {
   # Network FirewallのエンドポイントIDを取得
   # Network Firewallは各AZにエンドポイントを作成する
   # この環境では1つのAZ (変数で指定) のみを使用
-  # 明示的にAZ名を指定してエンドポイントIDを取得することで、
-  # どのAZのエンドポイントを使用しているか明確にする
-  # try()でnullを許容し、ルート作成時に検証
+  # firewall_statusのデータ構造: list(object({ sync_states = set(object({ ... })) }))
+  # sync_statesから最初のエンドポイントIDを取得
   firewall_endpoint_id = try(
-    aws_networkfirewall_firewall.main.firewall_status[0].sync_states[var.availability_zone].attachment[0].endpoint_id,
+    tolist(aws_networkfirewall_firewall.main.firewall_status[0].sync_states)[0].attachment[0].endpoint_id,
     null
   )
 }
@@ -468,48 +470,25 @@ locals {
 # ルールグループは複数のルールをまとめたもので、Firewall Policyから参照されます
 
 # --- ALLOWLIST Rule Group ---
-# 目的: 許可するドメインへのアクセスを明示的に定義
-# 用途: ホワイトリスト方式でアクセス制御を行う場合に使用
+# ホワイトリスト方式: 明示的に許可したドメインのみアクセス可能
+# 許可ドメイン: b.hatena.ne.jp, aws.amazon.com
+# Domain List形式でALLOWLISTを定義
 resource "aws_networkfirewall_rule_group" "allowlist" {
-  # capacity: ルールグループが保持できるルールの最大数
-  # 一度設定すると変更不可のため、将来の拡張を見越して設定
-  # ドメインルールの場合、1ドメイン=約1 capacity消費
   capacity = 100
   name     = "allowlist-domain-rules"
-
-  # type: ルールグループのタイプ
-  # STATEFUL: コネクションの状態を追跡し、双方向のトラフィックを管理
-  # STATELESS: パケット単位で評価（状態追跡なし）
-  type = "STATEFUL"
+  type     = "STATEFUL"
 
   rule_group {
     rules_source {
-      # rules_source_list: ドメインベースのフィルタリング用
-      # Suricataルール形式よりも簡潔にドメインルールを定義可能
       rules_source_list {
-        # targets: 許可するドメインのリスト
-        # 先頭のドット(.)はワイルドカードを意味（例: .example.com は www.example.com, api.example.com などを含む）
-        #
-        # 許可ドメイン:
-        # - .amazonaws.com: AWSサービスエンドポイント（SSM, EC2messages, SSMmessages等）
-        # - .amazon.com: Amazon.comドメイン（aws.amazon.com等）
-        # - .example.com: テスト用ドメイン
+        generated_rules_type = "ALLOWLIST"
+        target_types         = ["TLS_SNI", "HTTP_HOST"]
         targets = [
-          ".example.com",
-          ".amazonaws.com",
+          "b.hatena.ne.jp",
+          ".hatena.ne.jp",
+          "aws.amazon.com",
           ".amazon.com"
         ]
-
-        # target_types: 検査対象のプロトコル層
-        # HTTP_HOST: HTTPリクエストのHostヘッダーを検査
-        # TLS_SNI: TLSハンドシェイクのSNI（Server Name Indication）を検査
-        # 両方指定することでHTTP/HTTPS両方のトラフィックを検査
-        target_types = ["HTTP_HOST", "TLS_SNI"]
-
-        # generated_rules_type: ルールの動作タイプ
-        # ALLOWLIST: マッチしたトラフィックを許可、それ以外は次のルールへ
-        # DENYLIST: マッチしたトラフィックを拒否
-        generated_rules_type = "ALLOWLIST"
       }
     }
   }
@@ -518,31 +497,37 @@ resource "aws_networkfirewall_rule_group" "allowlist" {
 }
 
 # --- DENYLIST Rule Group ---
-# 目的: 拒否するドメインへのアクセスをブロック
-# 用途: 特定のドメインを明示的にブロックする場合に使用（例: マルウェアC2サーバー、不適切なサイトなど）
-# 注意: Firewall Policyで優先度1に設定され、ALLOWLISTより先に評価される
+# すべてのドメインを拒否（ALLOWLISTと組み合わせてホワイトリスト方式を実現）
+# DEFAULT_ACTION_ORDERでは、PASS（ALLOWLIST）がDROP（DENYLIST）より優先される
 resource "aws_networkfirewall_rule_group" "denylist" {
-  capacity = 100
-  name     = "denylist-domain-rules"
+  capacity = 50
+  name     = "denylist-all-domains"
   type     = "STATEFUL"
 
   rule_group {
     rules_source {
       rules_source_list {
-        # targets: 拒否するドメインのリスト
-        # このハンズオンでは google.com を使用して動作確認
-        # 本番環境では既知の悪性ドメインやポリシー違反ドメインを指定
-        targets      = [".google.com"]
-        target_types = ["HTTP_HOST", "TLS_SNI"]
-
-        # DENYLIST: マッチしたトラフィックは即座に拒否され、ALERTログに記録
         generated_rules_type = "DENYLIST"
+        target_types         = ["TLS_SNI", "HTTP_HOST"]
+        # すべてのドメインにマッチするワイルドカード
+        targets = [
+          ".com",
+          ".net",
+          ".org",
+          ".jp",
+          ".io",
+          ".co",
+          ".edu",
+          ".gov"
+        ]
       }
     }
   }
 
-  tags = { Name = "denylist-domain-rules" }
+  tags = { Name = "denylist-all-domains" }
 }
+# STRICT_ORDERモード + stateful_default_actions で
+# ALLOWLISTにマッチしないトラフィックはデフォルトで拒否される
 
 #####################################
 # Firewall Policy
@@ -569,53 +554,31 @@ resource "aws_networkfirewall_firewall_policy" "main" {
 
     # --- Stateful処理の設定 ---
     # Stateful: コネクションの状態を追跡し、アプリケーション層まで検査
-    # 用途: ドメインフィルタリング、IPS/IDS、プロトコル検査
+    # ホワイトリスト方式: 許可ドメインのみアクセス可、それ以外は拒否
 
-    # stateful_default_actions: どのルールにもマッチしなかった場合の動作
-    # DEFAULT_ACTION_ORDER モードでは指定不可（指定するとエラーになる）
-    # このモードでは以下の評価順序で自動的に処理される:
-    # 1. DENYLIST → マッチしたら拒否・ALERT
-    # 2. ALLOWLIST → マッチしたら許可・FLOW
-    # 3. マッチしないトラフィック → 許可（デフォルト動作）
-    #
-    # このハンズオンではDENYLISTのみでブロックし、それ以外は許可する方式を採用
-    # stateful_default_actions は指定しない
-
-    # stateful_engine_options: Statefulエンジンの動作モード
+    # stateful_engine_options: STRICT_ORDERモードで明示的優先度制御
     stateful_engine_options {
-      # rule_order: ルールの評価順序を制御
-      # DEFAULT_ACTION_ORDER: アクション優先度で自動評価（DENYLIST > ALLOWLIST）
-      # STRICT_ORDER: 明示的なpriorityで評価（Suricataルール用、rules_source_listでは使用不可）
-      #
-      # rules_source_list (ALLOWLIST/DENYLIST) を使用する場合は DEFAULT_ACTION_ORDER が必須
-      # このモードでは、DENYLISTが自動的にALLOWLISTより優先されるため、
-      # 明示的なpriority設定は不要（設定するとエラーになる）
-      rule_order = "DEFAULT_ACTION_ORDER"
+      rule_order = "STRICT_ORDER"
     }
+
+    # stateful_default_actions: どのルールにもマッチしなかったトラフィックを拒否
+    # aws:drop_strict: STRICT_ORDERモードで全てのマッチしないトラフィックを拒否
+    stateful_default_actions = ["aws:drop_strict"]
 
     # --- ルールグループの参照 ---
-    # DEFAULT_ACTION_ORDERモードでは、priorityフィールドは使用しない
-    # ルールの優先順位は自動的に決定される: DENYLIST > ALLOWLIST > stateful_default_actions
+    # STRICT_ORDERモード: priorityで評価順序を明示的に指定
 
-    # DENYLIST ルールグループ
-    # マッチしたトラフィックを即座に拒否し、ALERTログに記録
-    # ALLOWLISTより優先して評価される
-    stateful_rule_group_reference {
-      resource_arn = aws_networkfirewall_rule_group.denylist.arn
-    }
-
-    # ALLOWLIST ルールグループ
-    # マッチしたトラフィックを許可
-    # DENYLISTの後に評価される
+    # ALLOWLIST - 許可ドメインのみを定義
+    # b.hatena.ne.jp, aws.amazon.com のみ許可
     stateful_rule_group_reference {
       resource_arn = aws_networkfirewall_rule_group.allowlist.arn
+      priority     = 1
     }
 
-    # 処理フロー:
-    # 1. Statelessエンジンで基本フィルタリング → SFEに転送
-    # 2. StatefulエンジンでDENYLISTを評価 → マッチしたら拒否
-    # 3. ALLOWLISTを評価 → マッチしたら許可
-    # 4. どちらにもマッチしない → aws:drop_strictで拒否
+    # 処理フロー (STRICT_ORDERモード + stateful_default_actions):
+    # 1. Statelessエンジンで基本フィルタリング → Stateful Engineに転送
+    # 2. ALLOWLIST評価 → b.hatena.ne.jp/aws.amazon.com にマッチすれば許可（PASS）
+    # 3. ALLOWLIST不一致 → stateful_default_actions で拒否（DROP）
   }
 
   tags = { Name = "firewall-policy" }
@@ -638,9 +601,9 @@ module "s3_firewall_logs" {
 
   bucket = "nfw-logs-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
 
-  # バージョニング
+  # バージョニング: 無効化（terraform destroy時の削除を簡単にするため）
   versioning = {
-    enabled = true
+    enabled = false
   }
 
   # 暗号化
@@ -800,216 +763,31 @@ resource "aws_networkfirewall_logging_configuration" "main" {
   firewall_arn = aws_networkfirewall_firewall.main.arn
 
   logging_configuration {
-    # --- S3へのFLOWログ出力 ---
-    # 用途: トラフィック統計分析、ネットワーク可視化
+    # S3へのALERTログ出力（許可・拒否ログ）
+    # プレフィックス形式: alert/yyyy/mm/dd/
     log_destination_config {
       log_destination = {
         bucketName = module.s3_firewall_logs.s3_bucket_id
-        prefix     = "AWSLogs/NetworkFirewall/flow"
+        # プレフィックスに日付を含めてパーティション分割
+        # AWSは自動的にyyyy/mm/dd/hh/の形式でログを保存
+        prefix = "alert"
       }
       log_destination_type = "S3"
 
-      # log_type: FLOW
-      # FLOW: すべてのトラフィックフローの統計情報（ルールマッチに関係なく）
-      # - 送信元/宛先IP、ポート
-      # - プロトコル（TCP/UDP）
-      # - パケット数、バイト数
-      # - 接続の開始/終了時刻
-      # 注意: ALERTログよりもデータ量が多い
-      log_type = "FLOW"
-    }
-
-    # --- CloudWatch Logsへのログ出力 (メトリクス用) ---
-    # 用途: リアルタイム監視、CloudWatch Metricsでのアラート設定
-    log_destination_config {
-      log_destination = {
-        # logGroup: CloudWatch Logsのロググループ名
-        # Metric Filterを適用して、ブロック回数などをメトリクス化
-        logGroup = aws_cloudwatch_log_group.network_firewall_alert.name
-      }
-      log_destination_type = "CloudWatchLogs"
-
-      # ALERTログのみをCloudWatch Logsに送信
-      # 理由: メトリクス抽出にはALERTログで十分、FLOWログは大量すぎる
+      # log_type: ALERT
+      # ALERT: ルールにマッチしたトラフィックのみ（許可・拒否）
+      # - ドメイン名
+      # - アクション（allowed/blocked）
+      # - ルール情報
+      # - タイムスタンプ
       log_type = "ALERT"
     }
-
-    # ログ出力のベストプラクティス:
-    # 1. S3 (ALERT + FLOW): 長期保管と詳細分析用
-    # 2. CloudWatch Logs (ALERTのみ): リアルタイム監視とアラート用
-    # 3. KinesisDataFirehose (オプション): SIEM連携など
   }
 }
 
-#####################################
-# CloudWatch Logs for Metrics
-#####################################
-# CloudWatch Logsロググループ: メトリクスフィルター適用のためのログ受け皿
-# S3ログは長期保管用、CloudWatch Logsはリアルタイム監視用
+# CloudWatch Logsとメトリクスフィルターは監視不要のため削除
 
-resource "aws_cloudwatch_log_group" "network_firewall_alert" {
-  # name: ロググループの名前（AWS命名規則に従う）
-  name = "/aws/network-firewall/alert"
-
-  # retention_in_days: ログ保持期間
-  # メトリクス抽出が目的のため短期保持（デフォルト7日）
-  # 長期保管はS3で行うため、CloudWatch Logsはコスト最適化
-  retention_in_days = var.cloudwatch_log_retention_days
-
-  tags = {
-    Name        = "${var.project_name}-alert-logs"
-    Environment = "demo"
-  }
-}
-
-#####################################
-# CloudWatch Metric Filters
-#####################################
-# メトリクスフィルター: ログからメトリクスを抽出し、CloudWatch Metricsとして可視化
-# アラーム設定、ダッシュボード表示、自動スケーリングなどに活用可能
-
-# --- ブロックされたドメインアクセスのカウント ---
-# 用途: セキュリティ監視、攻撃検知、ポリシー違反の把握
-resource "aws_cloudwatch_log_metric_filter" "blocked_domains" {
-  name           = "NetworkFirewall-BlockedDomains"
-  log_group_name = aws_cloudwatch_log_group.network_firewall_alert.name
-
-  # pattern: ログからメトリクスを抽出するパターン
-  # JSONフィールドベースのフィルタリングで、ブロックされたログのみを抽出
-  # $.event.alert.action = "blocked" にマッチするログのみカウント
-  pattern = "{ $.event.alert.action = \"blocked\" }"
-
-  # metric_transformation: 抽出したログをメトリクスに変換
-  metric_transformation {
-    # name: メトリクス名（CloudWatch Metricsで表示される名前）
-    name = "BlockedDomainCount"
-
-    # namespace: メトリクスの名前空間（複数メトリクスをグループ化）
-    # カスタムメトリクスは任意の名前空間を使用可能
-    namespace = "NetworkFirewall"
-
-    # value: メトリクスの値
-    # "1" = ログが1件見つかるたびにカウント+1
-    # 他の例: "$.event.netflow.bytes" でバイト数を抽出
-    value = "1"
-
-    # unit: メトリクスの単位
-    # Count: 回数、Bytes: バイト数、Seconds: 秒など
-    unit = "Count"
-  }
-
-  # このメトリクスの活用例:
-  # - CloudWatch Alarmでしきい値超過時に通知
-  # - ダッシュボードで時系列グラフ表示
-  # - 異常な増加パターンの検知
-}
-
-# --- 許可されたドメインアクセスのカウント ---
-# 用途: 通常トラフィック量の把握、ベースライン作成
-resource "aws_cloudwatch_log_metric_filter" "allowed_domains" {
-  name           = "NetworkFirewall-AllowedDomains"
-  log_group_name = aws_cloudwatch_log_group.network_firewall_alert.name
-
-  # pattern: JSONフィールドベースのフィルタリング
-  # $.event.alert.action = "allowed" にマッチするログのみ抽出
-  # ALERTログのJSON構造に基づいたパターンマッチング
-  pattern = "{ $.event.alert.action = \"allowed\" }"
-
-  metric_transformation {
-    name      = "AllowedDomainCount"
-    namespace = "NetworkFirewall"
-    value     = "1"
-    unit      = "Count"
-  }
-
-  # このメトリクスの活用例:
-  # - 許可/拒否の比率を監視
-  # - 通常時のトラフィックパターンを把握
-  # - ポリシー変更前後の影響分析
-}
-
-# 補足: CloudWatch Metricsの確認方法
-# 1. CloudWatchコンソール → メトリクス → NetworkFirewall 名前空間
-# 2. メトリクス名: BlockedDomainCount, AllowedDomainCount
-# 3. グラフ化して時系列で表示
-# 4. アラーム設定でしきい値超過時にSNS通知
-
-#####################################
-# Athena for Log Analysis
-#####################################
-
-# Athena結果格納用S3バケット
-module "s3_athena_results" {
-  source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "~> 4.0"
-
-  bucket = "athena-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}"
-
-  # 暗号化
-  server_side_encryption_configuration = {
-    rule = {
-      apply_server_side_encryption_by_default = {
-        sse_algorithm = "AES256"
-      }
-    }
-  }
-
-  # パブリックアクセスブロック
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-
-  # ライフサイクルルール (クエリ結果は30日で削除)
-  lifecycle_rule = [
-    {
-      id      = "query-results-expiration"
-      enabled = true
-
-      expiration = {
-        days = 30
-      }
-    }
-  ]
-
-  tags = {
-    Name        = "athena-query-results"
-    Environment = "demo"
-    Purpose     = "athena-query-results"
-  }
-}
-
-# Athenaデータベース
-resource "aws_glue_catalog_database" "firewall_logs" {
-  name        = "network_firewall_logs"
-  description = "Database for Network Firewall logs analysis"
-
-  # GitHub ActionsのIAMロールがglue:GetTags権限を持たない場合に
-  # Terraform refreshエラーを回避するため、タグ変更を無視
-  lifecycle {
-    ignore_changes = [tags, tags_all]
-  }
-}
-
-# Athenaワークグループ
-resource "aws_athena_workgroup" "firewall_analysis" {
-  name = "network-firewall-analysis"
-
-  configuration {
-    enforce_workgroup_configuration    = true
-    publish_cloudwatch_metrics_enabled = true
-
-    result_configuration {
-      output_location = "s3://${module.s3_athena_results.s3_bucket_id}/query-results/"
-
-      encryption_configuration {
-        encryption_option = "SSE_S3"
-      }
-    }
-  }
-
-  tags = { Name = "network-firewall-analysis" }
-}
+# Athenaは不要のため削除
 
 #####################################
 # Route: Private Subnet → Firewall Endpoint
@@ -1058,196 +836,28 @@ output "ec2_instance_id" {
 }
 
 output "s3_log_bucket" {
-  description = "S3 bucket for Network Firewall logs"
+  description = "S3 bucket for Network Firewall ALERT logs"
   value       = module.s3_firewall_logs.s3_bucket_id
 }
 
-output "athena_database" {
-  description = "Athena database name for log analysis"
-  value       = aws_glue_catalog_database.firewall_logs.name
-}
-
-output "athena_workgroup" {
-  description = "Athena workgroup name"
-  value       = aws_athena_workgroup.firewall_analysis.name
-}
-
 output "test_commands" {
-  description = "Commands to test Network Firewall domain rules and analyze logs"
+  description = "Commands to test Network Firewall whitelist rules"
   value       = <<-EOT
-    ### 1. ドメインルールのテスト ###
-
     # SSM接続
     aws ssm start-session --target ${aws_instance.test.id} --region ap-northeast-1
 
-    # 許可されるドメイン (example.com) - 成功するはず
-    curl -I https://example.com
+    # ホワイトリスト許可ドメインのテスト:
 
-    # 拒否されるドメイン (google.com) - タイムアウトするはず
-    curl -I https://google.com
+    # b.hatena.ne.jp - 許可されるはず
+    curl -I https://b.hatena.ne.jp --max-time 10
 
-    # 許可されるドメイン (amazonaws.com) - 成功するはず
-    curl -I https://aws.amazon.com
+    # aws.amazon.com - 許可されるはず
+    curl -I https://aws.amazon.com --max-time 10
 
+    # google.com - 拒否されるはず（タイムアウト）
+    curl -I https://google.com --max-time 10
 
-    ### 2. S3ログの確認 ###
-
-    # FLOWログの確認 (S3に保存されるのはFLOWログのみ)
-    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/flow/ --recursive
-
-
-    ### 3. CloudWatch Logsでアラート確認 ###
-
-    # ALERTログはCloudWatch Logsに保存
-    aws logs tail ${aws_cloudwatch_log_group.network_firewall_alert.name} --follow
-
-
-    ### 4. Athenaでログ分析 ###
-
-    # 以下のDDLをAthenaで実行してテーブル作成
-    # ワークグループ: ${aws_athena_workgroup.firewall_analysis.name}
-    # データベース: ${aws_glue_catalog_database.firewall_logs.name}
-  EOT
-}
-
-output "athena_ddl_flow" {
-  description = "Athena DDL to create FLOW logs table with partitions"
-  value       = <<-EOT
-    -- パーティション対応のFLOWログテーブル作成
-    -- FLOWログはALERTログより大量のため、パーティション化が特に重要
-
-    CREATE EXTERNAL TABLE IF NOT EXISTS ${aws_glue_catalog_database.firewall_logs.name}.flow_logs (
-      firewall_name string,
-      availability_zone string,
-      event_timestamp bigint,
-      event struct<
-        timestamp:string,
-        flow_id:bigint,
-        event_type:string,
-        src_ip:string,
-        src_port:int,
-        dest_ip:string,
-        dest_port:int,
-        proto:string,
-        netflow:struct<
-          pkts:bigint,
-          bytes:bigint,
-          start:string,
-          end:string,
-          age:bigint,
-          min_ttl:bigint,
-          max_ttl:bigint
-        >
-      >
-    )
-    PARTITIONED BY (
-      year string,
-      month string,
-      day string,
-      hour string
-    )
-    ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
-    LOCATION 's3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/flow/'
-    TBLPROPERTIES (
-      'projection.enabled' = 'true',
-      'projection.year.type' = 'integer',
-      'projection.year.range' = '2020,2035',
-      'projection.month.type' = 'integer',
-      'projection.month.range' = '01,12',
-      'projection.month.digits' = '2',
-      'projection.day.type' = 'integer',
-      'projection.day.range' = '01,31',
-      'projection.day.digits' = '2',
-      'projection.hour.type' = 'integer',
-      'projection.hour.range' = '00,23',
-      'projection.hour.digits' = '2',
-      'storage.location.template' = 's3://${module.s3_firewall_logs.s3_bucket_id}/AWSLogs/NetworkFirewall/flow/$${year}/$${month}/$${day}/$${hour}'
-    );
-
-    -- パーティションプロジェクション使用時の利点:
-    -- 1. MSCK REPAIR TABLE不要（自動でパーティション認識）
-    -- 2. クエリ時に WHERE year='2025' AND month='01' AND day='15' などでフィルタ可能
-    -- 3. スキャンデータ量削減 = コスト削減 & 高速化
-  EOT
-}
-
-output "athena_sample_queries" {
-  description = "Sample Athena queries for FLOW log analysis with partition filters"
-  value       = <<-EOT
-    注意: ALERTログはCloudWatch Logsに保存されています。
-    ALERTログの分析はCloudWatch Logs Insightsを使用してください。
-    S3に保存されているのはFLOWログのみです。
-
-    -- ========================================
-    -- 1. トラフィックフロー(FLOW)の統計 - 特定日のみ
-    -- ========================================
-    -- FLOWログは大量のため、パーティションフィルタが必須
-    -- WHERE句にパーティションカラム(year, month, day)を含めることで高速化
-
-    SELECT
-      event.dest_ip,
-      event.dest_port,
-      event.proto,
-      COUNT(*) as connection_count,
-      SUM(event.netflow.bytes) as total_bytes,
-      SUM(event.netflow.pkts) as total_packets
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
-    WHERE year = '2025'
-      AND month = '01'
-      AND day = '15'
-    GROUP BY event.dest_ip, event.dest_port, event.proto
-    ORDER BY total_bytes DESC
-    LIMIT 20;
-
-    -- ========================================
-    -- 2. 時間帯別トラフィック分析（週単位）
-    -- ========================================
-    -- パーティションフィルタで週単位のデータのみ集計
-
-    SELECT
-      date_trunc('hour', from_unixtime(event_timestamp)) as hour,
-      COUNT(*) as flow_count,
-      SUM(event.netflow.bytes) as total_bytes
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
-    WHERE year = '2025'
-      AND month = '01'
-      AND day BETWEEN '15' AND '21'
-    GROUP BY date_trunc('hour', from_unixtime(event_timestamp))
-    ORDER BY hour DESC;
-
-    -- ========================================
-    -- 3. パーティション別のログ件数確認
-    -- ========================================
-    -- 各パーティションにどれだけのログがあるかを確認
-
-    SELECT
-      year,
-      month,
-      day,
-      hour,
-      COUNT(*) as log_count
-    FROM ${aws_glue_catalog_database.firewall_logs.name}.flow_logs
-    WHERE year = '2025'
-      AND month = '01'
-    GROUP BY year, month, day, hour
-    ORDER BY year, month, day, hour;
-
-    -- ========================================
-    -- パーティションフィルタ利用のベストプラクティス:
-    -- ========================================
-    -- 1. 常にWHERE句にyear, month, dayを含める
-    -- 2. 範囲指定時は BETWEEN を使用
-    -- 3. 全期間スキャンが必要な場合は集計範囲を限定
-    -- 4. クエリ実行前に「Data scanned」を確認
-
-    -- ========================================
-    -- CloudWatch Logs Insightsでのアラート分析例:
-    -- ========================================
-    -- ロググループ: ${aws_cloudwatch_log_group.network_firewall_alert.name}
-    --
-    -- fields @timestamp, event.src_ip, event.dest_ip, event.alert.signature, event.alert.action
-    -- | filter event.alert.action = "blocked"
-    -- | sort @timestamp desc
-    -- | limit 100
+    # S3 ALERTログの確認（yyyy/mm/dd形式）:
+    aws s3 ls s3://${module.s3_firewall_logs.s3_bucket_id}/alert/ --recursive
   EOT
 }

@@ -457,7 +457,6 @@ aws s3 ls | grep athena-results
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_ec2_security_group"></a> [ec2\_security\_group](#module\_ec2\_security\_group) | terraform-aws-modules/security-group/aws | ~> 5.0 |
-| <a name="module_s3_athena_results"></a> [s3\_athena\_results](#module\_s3\_athena\_results) | terraform-aws-modules/s3-bucket/aws | ~> 4.0 |
 | <a name="module_s3_firewall_logs"></a> [s3\_firewall\_logs](#module\_s3\_firewall\_logs) | terraform-aws-modules/s3-bucket/aws | ~> 4.0 |
 | <a name="module_vpc_endpoint_security_group"></a> [vpc\_endpoint\_security\_group](#module\_vpc\_endpoint\_security\_group) | terraform-aws-modules/security-group/aws | ~> 5.0 |
 
@@ -465,12 +464,7 @@ aws s3 ls | grep athena-results
 
 | Name | Type |
 |------|------|
-| [aws_athena_workgroup.firewall_analysis](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/athena_workgroup) | resource |
-| [aws_cloudwatch_log_group.network_firewall_alert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_log_metric_filter.allowed_domains](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) | resource |
-| [aws_cloudwatch_log_metric_filter.blocked_domains](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_metric_filter) | resource |
 | [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip) | resource |
-| [aws_glue_catalog_database.firewall_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/glue_catalog_database) | resource |
 | [aws_iam_instance_profile.ssm_profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_role.ssm_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.ssm_core](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
@@ -522,12 +516,8 @@ aws s3 ls | grep athena-results
 
 | Name | Description |
 |------|-------------|
-| <a name="output_athena_database"></a> [athena\_database](#output\_athena\_database) | Athena database name for log analysis |
-| <a name="output_athena_ddl_flow"></a> [athena\_ddl\_flow](#output\_athena\_ddl\_flow) | Athena DDL to create FLOW logs table with partitions |
-| <a name="output_athena_sample_queries"></a> [athena\_sample\_queries](#output\_athena\_sample\_queries) | Sample Athena queries for FLOW log analysis with partition filters |
-| <a name="output_athena_workgroup"></a> [athena\_workgroup](#output\_athena\_workgroup) | Athena workgroup name |
 | <a name="output_ec2_instance_id"></a> [ec2\_instance\_id](#output\_ec2\_instance\_id) | EC2 Instance ID for SSM connection |
 | <a name="output_firewall_endpoint_id"></a> [firewall\_endpoint\_id](#output\_firewall\_endpoint\_id) | Network Firewall Endpoint ID |
-| <a name="output_s3_log_bucket"></a> [s3\_log\_bucket](#output\_s3\_log\_bucket) | S3 bucket for Network Firewall logs |
-| <a name="output_test_commands"></a> [test\_commands](#output\_test\_commands) | Commands to test Network Firewall domain rules and analyze logs |
+| <a name="output_s3_log_bucket"></a> [s3\_log\_bucket](#output\_s3\_log\_bucket) | S3 bucket for Network Firewall ALERT logs |
+| <a name="output_test_commands"></a> [test\_commands](#output\_test\_commands) | Commands to test Network Firewall whitelist rules |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
