@@ -154,7 +154,11 @@ resource "aws_route" "igw_to_firewall" {
   destination_cidr_block = var.private_subnet_cidr
   vpc_endpoint_id        = local.firewall_endpoint_id
 
-  depends_on = [aws_networkfirewall_firewall.main]
+  # タイミング問題を防ぐため、Firewall作成とIGW作成の両方を明示的に待機
+  depends_on = [
+    aws_networkfirewall_firewall.main,
+    aws_internet_gateway.main
+  ]
 }
 
 # IGWルートテーブルをIGWにアタッチ
@@ -163,6 +167,11 @@ resource "aws_route_table_association" "igw" {
 
   gateway_id     = aws_internet_gateway.main.id
   route_table_id = aws_route_table.igw.id
+
+  # IGWルート作成後にアタッチする
+  depends_on = [
+    aws_route.igw_to_firewall
+  ]
 }
 
 #####################################
@@ -563,16 +572,14 @@ resource "aws_networkfirewall_firewall_policy" "main" {
     # 用途: ドメインフィルタリング、IPS/IDS、プロトコル検査
 
     # stateful_default_actions: どのルールにもマッチしなかった場合の動作
-    # aws:alert_strict = ALERTログを記録するが通過を許可（監視モード）
-    # aws:drop_strict = ルールにマッチしないトラフィックを拒否（厳格モード）
-    #
-    # DEFAULT_ACTION_ORDER モードでの評価順序:
+    # DEFAULT_ACTION_ORDER モードでは指定不可（指定するとエラーになる）
+    # このモードでは以下の評価順序で自動的に処理される:
     # 1. DENYLIST → マッチしたら拒否・ALERT
-    # 2. ALLOWLIST → マッチしたら許可（次のルールへ進む）
-    # 3. stateful_default_actions → aws:alert_strict（許可・ALERT記録）
+    # 2. ALLOWLIST → マッチしたら許可・FLOW
+    # 3. マッチしないトラフィック → 許可（デフォルト動作）
     #
     # このハンズオンではDENYLISTのみでブロックし、それ以外は許可する方式を採用
-    stateful_default_actions = ["aws:alert_strict"]
+    # stateful_default_actions は指定しない
 
     # stateful_engine_options: Statefulエンジンの動作モード
     stateful_engine_options {
