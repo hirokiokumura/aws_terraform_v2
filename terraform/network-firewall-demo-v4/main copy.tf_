@@ -1,0 +1,559 @@
+#####################################
+# Terraform Backend (S3)
+#####################################
+
+terraform {
+  backend "s3" {
+    bucket = "apricot1224v1-terraform"
+    key    = "network-firewall-demo-v4/terraform.tfstate"
+    region = "ap-northeast-1"
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      # version = "~> 5.0"
+      version = "6.19.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-northeast-1"
+}
+
+#####################################
+# Data Sources
+#####################################
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+#####################################
+# Variables
+#####################################
+
+variable "availability_zone" {
+  description = "Availability Zone for all resources"
+  type        = string
+  default     = "ap-northeast-1a"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.2.0.0/22"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
+  type        = string
+  default     = "10.2.0.0/24"
+}
+
+variable "firewall_subnet_cidr" {
+  description = "CIDR block for firewall subnet"
+  type        = string
+  default     = "10.2.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for private subnet"
+  type        = string
+  default     = "10.2.2.0/24"
+}
+
+
+variable "project_name" {
+  description = "Project name for resource naming and tagging"
+  type        = string
+  default     = "network-firewall-demo-v4"
+}
+
+variable "ec2_ami_id" {
+  description = "AMI ID for EC2 instance (Amazon Linux 2023 recommended)"
+  type        = string
+  # デフォルト: ap-northeast-1リージョンのAmazon Linux 2023最新安定版
+  # 他リージョンで使用する場合は、terraform.tfvarsで上書きしてください
+  # 最新AMI ID確認方法:
+  # aws ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-*-x86_64" "Name=state,Values=available" --query "reverse(sort_by(Images, &CreationDate))[0].ImageId" --region ap-northeast-1
+  default = "ami-0091f05e4b8ee6709" # Amazon Linux 2023 (ap-northeast-1, 2024-01時点)
+}
+
+#####################################
+# VPC
+#####################################
+
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags                 = { Name = "${var.project_name}-vpc" }
+}
+
+#####################################
+# Subnets
+#####################################
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-public-subnet"
+    AZ   = var.availability_zone
+  }
+}
+
+resource "aws_subnet" "firewall" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.firewall_subnet_cidr
+  availability_zone = var.availability_zone
+  tags = {
+    Name = "${var.project_name}-firewall-subnet"
+    AZ   = var.availability_zone
+  }
+}
+
+resource "aws_subnet" "private" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidr
+  availability_zone = var.availability_zone
+  tags = {
+    Name = "${var.project_name}-private-subnet"
+    AZ   = var.availability_zone
+  }
+}
+
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "nfw-demo-igw-v4" }
+}
+
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags   = { Name = "nfw-demo-nat-eip-v4" }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  # NAT GatewayはPublic Subnetに配置し、IGWへのルートが必要
+  depends_on = [aws_internet_gateway.main]
+
+  tags = { Name = "nfw-demo-nat-v4" }
+}
+
+#####################################
+# Locals for Network Firewall Endpoints
+#####################################
+
+# locals {
+#   # Network Firewallエンドポイント作成後に取得
+#   # ルーティング設定で使用するため、ここで一元管理
+#   firewall_endpoint_id = try(
+#     tolist(aws_networkfirewall_firewall.main.firewall_status[0].sync_states)[0].attachment[0].endpoint_id,
+#     null
+#   )
+# }
+
+#####################################
+# Route Tables
+#####################################
+
+# 1. Public Subnet Route Table (Egress: Internet-bound traffic)
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "${var.project_name}-public-rtb" }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+# Egress: Public Subnet -> Internet Gateway
+resource "aws_route" "public_egress_to_igw" {
+  route_table_id         = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main.id
+}
+
+# 2. Firewall Subnet Route Table (Egress: Inspected traffic to NAT)
+resource "aws_route_table" "firewall" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "${var.project_name}-firewall-rtb" }
+}
+
+resource "aws_route_table_association" "firewall" {
+  subnet_id      = aws_subnet.firewall.id
+  route_table_id = aws_route_table.firewall.id
+}
+
+# Egress: Firewall Subnet -> NAT Gateway (after inspection)
+resource "aws_route" "firewall_egress_to_nat" {
+  route_table_id         = aws_route_table.firewall.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
+}
+
+# 3. Private Subnet Route Table (Egress: All traffic to Firewall)
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "${var.project_name}-private-rtb" }
+}
+
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+
+# Egress: Private Subnet -> Firewall Endpoint (for inspection)
+# resource "aws_route" "private_egress_to_firewall" {
+#   route_table_id         = aws_route_table.private.id
+#   destination_cidr_block = "0.0.0.0/0"
+#   vpc_endpoint_id        = local.firewall_endpoint_id
+
+#   # Network Firewall作成後にルート設定を実施
+#   depends_on = [aws_networkfirewall_firewall.main]
+# }
+
+# 4. IGW Route Table (Ingress: Return traffic from Internet)
+# IGWからPrivate Subnetへの戻りトラフィックをFirewall Endpointに転送
+resource "aws_route_table" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "${var.project_name}-igw-rtb" }
+}
+
+# Ingress: IGW -> Firewall Endpoint (return traffic to Private Subnet)
+# resource "aws_route" "igw_ingress_to_firewall" {
+#   route_table_id         = aws_route_table.igw.id
+#   destination_cidr_block = var.private_subnet_cidr
+#   vpc_endpoint_id        = local.firewall_endpoint_id
+
+#   # Network Firewall作成後にルート設定を実施
+#   depends_on = [aws_networkfirewall_firewall.main]
+# }
+
+resource "aws_route_table_association" "igw" {
+  gateway_id     = aws_internet_gateway.main.id
+  route_table_id = aws_route_table.igw.id
+
+#   # IGWルート作成後にアタッチ
+#   depends_on = [aws_route.igw_ingress_to_firewall]
+}
+
+
+#####################################
+# Security Groups
+#####################################
+
+module "vpc_endpoint_security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = "vpc-endpoint-sg"
+  description = "Security group for VPC endpoints (SSM, EC2messages, SSMmessages)"
+  vpc_id      = aws_vpc.main.id
+
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = aws_vpc.main.cidr_block
+      description = "Allow HTTPS from VPC for VPC endpoints"
+    }
+  ]
+
+  egress_with_cidr_blocks = [
+    {
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = "0.0.0.0/0"
+      description = "Allow all outbound traffic"
+    }
+  ]
+
+  tags = {
+    Name        = "vpc-endpoint-sg"
+    Environment = "demo"
+  }
+}
+
+module "ec2_security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.0"
+
+  name        = "nfw-demo-ec2-sg"
+  description = "Security group for EC2 instance - Network Firewall demo"
+  vpc_id      = aws_vpc.main.id
+
+  # Egress: すべて許可 (Network Firewallでフィルタリング)
+  egress_with_cidr_blocks = [
+    {
+      rule        = "all-all"
+      cidr_blocks = "0.0.0.0/0"
+      description = "Allow all outbound (filtered by Network Firewall)"
+    }
+  ]
+
+  # Ingress: VPC内から許可 (SSM用)
+  ingress_with_cidr_blocks = [
+    {
+      rule        = "https-443-tcp"
+      cidr_blocks = aws_vpc.main.cidr_block
+      description = "Allow HTTPS from VPC for SSM"
+    }
+  ]
+
+  tags = {
+    Name        = "ec2-sg"
+    Environment = "demo"
+  }
+}
+
+#####################################
+# IAM Roles & Policies
+#####################################
+
+resource "aws_iam_role" "ssm_role" {
+  # 名前を動的生成してアカウント間での衝突を防止
+  # アカウントIDとリージョンを含めることで一意性を確保
+  name = "nfw-demo-ec2-ssm-role-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+
+  tags = {
+    Name = "nfw-demo-ec2-ssm-role-v4"
+  }
+}
+
+resource "aws_iam_instance_profile" "ssm_profile" {
+  # インスタンスプロファイル名も動的生成
+  name = "nfw-demo-ec2-ssm-profile-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.id}"
+  role = aws_iam_role.ssm_role.name
+
+  tags = {
+    Name = "nfw-demo-ec2-ssm-profile-v4"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  role       = aws_iam_role.ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+#####################################
+# EC2 Instances
+#####################################
+
+resource "aws_instance" "test" {
+  # Amazon Linux 2023 AMI (変数で指定)
+  # デフォルトはap-northeast-1リージョンの最新安定版
+  ami                         = var.ec2_ami_id
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.private.id
+  iam_instance_profile        = aws_iam_instance_profile.ssm_profile.name
+  vpc_security_group_ids      = [module.ec2_security_group.security_group_id]
+  associate_public_ip_address = false
+  monitoring                  = true
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required" # IMDSv4を強制
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
+
+  root_block_device {
+    encrypted   = true
+    volume_type = "gp3"
+    volume_size = 8
+  }
+
+  tags = {
+    Name        = "firewall-test-ec2-v4"
+    Environment = "demo"
+  }
+}
+
+#####################################
+# VPC Endpoints for SSM
+#####################################
+
+locals {
+  # SSM接続に必要なVPCエンドポイント
+  # VPCエンドポイントを使用することで、インターネット経由せずにプライベートにSSM接続可能
+  # コスト: 各エンドポイント約$7.3/月 × 3 = 約$22/月
+  endpoints = {
+    ssm = {
+      service_name = "com.amazonaws.${data.aws_region.current.id}.ssm"
+      description  = "SSM endpoint for Session Manager"
+    }
+    ssmmessages = {
+      service_name = "com.amazonaws.${data.aws_region.current.id}.ssmmessages"
+      description  = "SSM Messages endpoint for Session Manager"
+    }
+    ec2messages = {
+      service_name = "com.amazonaws.${data.aws_region.current.id}.ec2messages"
+      description  = "EC2 Messages endpoint for SSM Agent"
+    }
+  }
+}
+
+resource "aws_vpc_endpoint" "ssm" {
+  for_each = local.endpoints
+
+  vpc_id              = aws_vpc.main.id
+  service_name        = each.value.service_name
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [aws_subnet.private.id]
+  security_group_ids  = [module.vpc_endpoint_security_group.security_group_id]
+  private_dns_enabled = true
+
+  tags = {
+    Name        = "nfw-demo-${each.key}-endpoint"
+    Environment = "demo"
+    Description = each.value.description
+  }
+}
+
+#####################################
+# Network Firewall Configuration
+#####################################
+
+# 1. Rule Groups (Suricata形式で実装)
+# BlackBeltのステートフルドメインリストフィルタの概念をSuricata構文で実装
+# aws.amazon.comのみ許可し、それ以外をブロック
+
+# resource "aws_networkfirewall_rule_group" "domain_filtering" {
+#   capacity = 100
+#   name     = "${var.project_name}-domain-filtering"
+#   type     = "STATEFUL"
+
+#   rule_group {
+#     rule_variables {
+#       ip_sets {
+#         key = "HOME_NET"
+#         ip_set {
+#           definition = [var.vpc_cidr]
+#         }
+#       }
+#     }
+
+#     rules_source {
+#       # Suricata形式のドメインベースフィルタリング
+#       # TLS SNIを検査してaws.amazon.comのみ許可
+#       rules_string = <<-EOT
+#         pass tls $HOME_NET any -> $EXTERNAL_NET 443 (tls.sni; content:"aws.amazon.com"; msg:"Allow aws.amazon.com"; sid:1000001; rev:1;)
+#         drop tls $HOME_NET any -> $EXTERNAL_NET 443 (msg:"Drop all other HTTPS"; sid:1000002; rev:1;)
+#         drop http $HOME_NET any -> $EXTERNAL_NET any (msg:"Drop all HTTP"; sid:1000003; rev:1;)
+#       EOT
+#     }
+
+#     stateful_rule_options {
+#       rule_order = "STRICT_ORDER"
+#     }
+#   }
+
+#   tags = { Name = "${var.project_name}-domain-filtering" }
+# }
+
+# 2. Firewall Policy
+
+# resource "aws_networkfirewall_firewall_policy" "main" {
+#   name = "${var.project_name}-policy"
+
+#   firewall_policy {
+#     stateless_default_actions          = ["aws:forward_to_sfe"]
+#     stateless_fragment_default_actions = ["aws:forward_to_sfe"]
+
+#     # STRICT_ORDER: Suricataルールを順序通りに評価
+#     stateful_engine_options {
+#       rule_order = "STRICT_ORDER"
+#     }
+
+#     # デフォルトアクション: どのルールにもマッチしない場合はDROP
+#     stateful_default_actions = ["aws:drop_strict"]
+
+#     # ドメインフィルタリングルールグループ（Suricata形式）
+#     stateful_rule_group_reference {
+#       resource_arn = aws_networkfirewall_rule_group.domain_filtering.arn
+#       priority     = 1
+#     }
+#   }
+
+#   tags = { Name = "${var.project_name}-policy" }
+# }
+
+# 3. Network Firewall
+
+# resource "aws_networkfirewall_firewall" "main" {
+#   name                = "${var.project_name}-firewall"
+#   firewall_policy_arn = aws_networkfirewall_firewall_policy.main.arn
+#   vpc_id              = aws_vpc.main.id
+
+#   subnet_mapping {
+#     subnet_id = aws_subnet.firewall.id
+#   }
+
+#   tags = { Name = "${var.project_name}-firewall" }
+# }
+
+# 4. S3 Bucket for Logs (Optional - currently disabled)
+# module "s3_firewall_logs" {
+#   source  = "terraform-aws-modules/s3-bucket/aws"
+#   version = "~> 4.0"
+
+#   bucket = "nfw-logs-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.name}-v4"
+
+#   versioning = {
+#     enabled = false
+#   }
+
+#   server_side_encryption_configuration = {
+#     rule = {
+#       apply_server_side_encryption_by_default = {
+#         sse_algorithm = "AES256"
+#       }
+#     }
+#   }
+
+#   block_public_acls       = true
+#   block_public_policy     = true
+#   ignore_public_acls      = true
+#   restrict_public_buckets = true
+
+#   tags = {
+#     Name    = "${var.project_name}-logs"
+#     Purpose = "network-firewall-logging"
+#   }
+# }
+
+# 5. Logging Configuration (Optional - currently disabled)
+# resource "aws_networkfirewall_logging_configuration" "main" {
+#   firewall_arn = aws_networkfirewall_firewall.main.arn
+
+#   logging_configuration {
+#     log_destination_config {
+#       log_destination = {
+#         bucketName = module.s3_firewall_logs.s3_bucket_id
+#         prefix     = "alert"
+#       }
+#       log_destination_type = "S3"
+#       log_type             = "ALERT"
+#     }
+#   }
+# }
