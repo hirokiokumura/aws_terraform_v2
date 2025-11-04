@@ -32,8 +32,8 @@
 | [aws_instance.test](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/instance) | resource |
 | [aws_internet_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/internet_gateway) | resource |
 | [aws_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/nat_gateway) | resource |
-| [aws_networkfirewall_firewall.netfw](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_firewall) | resource |
-| [aws_networkfirewall_firewall_policy.test_firewall_policy](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_firewall_policy) | resource |
+| [aws_networkfirewall_firewall.main](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_firewall) | resource |
+| [aws_networkfirewall_firewall_policy.main](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_firewall_policy) | resource |
 | [aws_networkfirewall_logging_configuration.main](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_logging_configuration) | resource |
 | [aws_networkfirewall_rule_group.allow_rule_group](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/networkfirewall_rule_group) | resource |
 | [aws_route.firewall_to_nat](https://registry.terraform.io/providers/hashicorp/aws/6.19.0/docs/resources/route) | resource |

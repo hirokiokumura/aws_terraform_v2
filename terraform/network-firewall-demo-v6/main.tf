@@ -140,12 +140,12 @@ resource "aws_subnet" "private" {
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "nfw-demo-igw-v6" }
+  tags   = { Name = "${var.project_name}-igw" }
 }
 
 resource "aws_eip" "nat" {
   domain = "vpc"
-  tags   = { Name = "nfw-demo-nat-eip-v6" }
+  tags   = { Name = "${var.project_name}-nat-eip" }
 }
 
 resource "aws_nat_gateway" "main" {
@@ -155,7 +155,7 @@ resource "aws_nat_gateway" "main" {
   # NAT GatewayはPublic Subnetに配置し、IGWへのルートが必要
   depends_on = [aws_internet_gateway.main]
 
-  tags = { Name = "nfw-demo-nat-v6" }
+  tags = { Name = "${var.project_name}-nat" }
 }
 
 
@@ -188,7 +188,7 @@ resource "aws_route" "public_to_private" {
   vpc_endpoint_id        = local.firewall_endpoint_id
 
   # Network Firewall作成後にルート設定を実施
-  depends_on = [aws_networkfirewall_firewall.netfw]
+  depends_on = [aws_networkfirewall_firewall.main]
 }
 
 # 2. Firewall Subnet Route Table (Egress: Inspected traffic to NAT)
@@ -226,7 +226,7 @@ resource "aws_route" "private_to_firewall" {
   destination_cidr_block = "0.0.0.0/0"
   vpc_endpoint_id        = local.firewall_endpoint_id
   # Network Firewall作成後にルート設定を実施
-  depends_on = [aws_networkfirewall_firewall.netfw]
+  depends_on = [aws_networkfirewall_firewall.main]
 }
 
 #####################################
@@ -348,7 +348,7 @@ module "ec2_security_group" {
   source  = "terraform-aws-modules/security-group/aws"
   version = "~> 5.0"
 
-  name        = "nfw-demo-ec2-sg"
+  name        = "${var.project_name}-ec2-sg"
   description = "Security group for EC2 instance - Network Firewall demo"
   vpc_id      = aws_vpc.main.id
 
@@ -382,8 +382,8 @@ module "ec2_security_group" {
 
 resource "aws_iam_role" "ssm_role" {
   # 名前を動的生成してアカウント間での衝突を防止
-  # アカウントIDとリージョンを含めることで一意性を確保
-  name = "nfw-demo-ec2-ssm-role-${local.account_id}-${data.aws_region.current.id}"
+  # project_nameとアカウントIDのハッシュで一意性を確保（64文字制限対応）
+  name = "${var.project_name}-ssm-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -395,17 +395,17 @@ resource "aws_iam_role" "ssm_role" {
   })
 
   tags = {
-    Name = "nfw-demo-ec2-ssm-role-v6"
+    Name = "${var.project_name}-ssm-role"
   }
 }
 
 resource "aws_iam_instance_profile" "ssm_profile" {
-  # インスタンスプロファイル名も動的生成
-  name = "nfw-demo-ec2-ssm-profile-${local.account_id}-${data.aws_region.current.id}"
+  # インスタンスプロファイル名も動的生成（64文字制限対応）
+  name = "${var.project_name}-ssm-profile"
   role = aws_iam_role.ssm_role.name
 
   tags = {
-    Name = "nfw-demo-ec2-ssm-profile-v6"
+    Name = "${var.project_name}-ssm-profile"
   }
 }
 
@@ -443,7 +443,7 @@ resource "aws_instance" "test" {
   }
 
   tags = {
-    Name        = "firewall-test-ec2-v6"
+    Name        = "${var.project_name}-ec2"
     Environment = "demo"
   }
 }
@@ -483,7 +483,7 @@ resource "aws_vpc_endpoint" "ssm" {
   private_dns_enabled = true
 
   tags = {
-    Name        = "nfw-demo-${each.key}-endpoint"
+    Name        = "${var.project_name}-${each.key}-endpoint"
     Environment = "demo"
     Description = each.value.description
   }
@@ -520,8 +520,8 @@ resource "aws_networkfirewall_rule_group" "allow_rule_group" {
 
 # 2. Firewall Policy
 
-resource "aws_networkfirewall_firewall_policy" "test_firewall_policy" {
-  name = "test-firewall-policy"
+resource "aws_networkfirewall_firewall_policy" "main" {
+  name = "${var.project_name}-firewall-policy"
 
   firewall_policy {
     stateless_default_actions          = ["aws:forward_to_sfe"]
@@ -543,14 +543,14 @@ resource "aws_networkfirewall_firewall_policy" "test_firewall_policy" {
     }
   }
 
-  tags = { Name = "test-firewall-policy" }
+  tags = { Name = "${var.project_name}-firewall-policy" }
 }
 
 # 3. Network Firewall
 
-resource "aws_networkfirewall_firewall" "netfw" {
-  name                = "netfw"
-  firewall_policy_arn = aws_networkfirewall_firewall_policy.test_firewall_policy.arn
+resource "aws_networkfirewall_firewall" "main" {
+  name                = "${var.project_name}-firewall"
+  firewall_policy_arn = aws_networkfirewall_firewall_policy.main.arn
   vpc_id              = aws_vpc.main.id
 
   # 削除保護とサブネット変更保護を有効化
@@ -561,7 +561,7 @@ resource "aws_networkfirewall_firewall" "netfw" {
     subnet_id = aws_subnet.firewall.id
   }
 
-  tags = { Name = "netfw" }
+  tags = { Name = "${var.project_name}-firewall" }
 }
 
 #####################################
@@ -572,7 +572,7 @@ locals {
   # Network Firewallエンドポイント作成後に取得
   # ルーティング設定で使用するため、ここで一元管理
   firewall_endpoint_id = try(
-    tolist(aws_networkfirewall_firewall.netfw.firewall_status[0].sync_states)[0].attachment[0].endpoint_id,
+    tolist(aws_networkfirewall_firewall.main.firewall_status[0].sync_states)[0].attachment[0].endpoint_id,
     null
   )
 }
@@ -743,7 +743,7 @@ resource "aws_s3_bucket_policy" "firewall_logs_policy" {
 # ALERTログ: ルールにマッチしたトラフィック（許可/ブロック）を記録
 # FLOWログ: すべてのネットワークフローを記録
 resource "aws_networkfirewall_logging_configuration" "main" {
-  firewall_arn = aws_networkfirewall_firewall.netfw.arn
+  firewall_arn = aws_networkfirewall_firewall.main.arn
 
   logging_configuration {
     # ALERTログ: ブロックされたトラフィックや許可されたトラフィックの詳細
