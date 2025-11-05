@@ -585,7 +585,15 @@ module "s3_bucket_firewall_logs" {
 
   bucket = "${local.account_alias}-nwf-logs-v6"
 
-  # バージョニング: 無効
+  # terraform destroy時にすべてのオブジェクト（バージョン・削除マーカー含む）を自動削除
+  force_destroy = true
+
+  # バージョニング: 無効（Suspended状態）
+  # 注意: enabled = false は S3の "Suspended" 状態を意味します
+  # Suspended状態では:
+  #   - 新しいバージョンは作成されない
+  #   - オブジェクト削除時に削除マーカーが作成される（重要！）
+  # terraform destroy時の自動削除には force_destroy = true が必要です
   versioning = {
     enabled = false
   }
